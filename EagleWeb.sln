@@ -1,0 +1,49 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.31829.152
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EagleWeb.Core", "EagleWeb.Core\EagleWeb.Core.csproj", "{061C2463-72A0-4FED-A6CF-4F4B2B8637DB}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EagleWeb.Common", "EagleWeb.Common\EagleWeb.Common.csproj", "{6A109942-9C46-488C-825B-5512051834F6}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EagleWeb.Package", "EagleWeb.Package\EagleWeb.Package.csproj", "{D5AEC800-D893-4902-9EAD-3BE66EA4372A}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EagleWeb.PluginInstaller", "EagleWeb.PluginInstaller\EagleWeb.PluginInstaller.csproj", "{8DE51F3D-E29B-4855-B4AA-6738DCC24F3E}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RaptorDspNet", "..\RaptorDspNet\RaptorDspNet\RaptorDspNet.csproj", "{602A2B9B-B37A-47D6-89BB-E6A0C69F4CDE}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{061C2463-72A0-4FED-A6CF-4F4B2B8637DB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{061C2463-72A0-4FED-A6CF-4F4B2B8637DB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{061C2463-72A0-4FED-A6CF-4F4B2B8637DB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{061C2463-72A0-4FED-A6CF-4F4B2B8637DB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6A109942-9C46-488C-825B-5512051834F6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6A109942-9C46-488C-825B-5512051834F6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6A109942-9C46-488C-825B-5512051834F6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6A109942-9C46-488C-825B-5512051834F6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D5AEC800-D893-4902-9EAD-3BE66EA4372A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D5AEC800-D893-4902-9EAD-3BE66EA4372A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D5AEC800-D893-4902-9EAD-3BE66EA4372A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D5AEC800-D893-4902-9EAD-3BE66EA4372A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8DE51F3D-E29B-4855-B4AA-6738DCC24F3E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8DE51F3D-E29B-4855-B4AA-6738DCC24F3E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8DE51F3D-E29B-4855-B4AA-6738DCC24F3E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8DE51F3D-E29B-4855-B4AA-6738DCC24F3E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{602A2B9B-B37A-47D6-89BB-E6A0C69F4CDE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{602A2B9B-B37A-47D6-89BB-E6A0C69F4CDE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{602A2B9B-B37A-47D6-89BB-E6A0C69F4CDE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{602A2B9B-B37A-47D6-89BB-E6A0C69F4CDE}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {6B4C663B-C4E9-4157-AFF7-C97687F5D774}
+	EndGlobalSection
+EndGlobal
