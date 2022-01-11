@@ -1,5 +1,4 @@
 ﻿using EagleWeb.Common;
-using EagleWeb.Common.IO.DataProperty;
 using EagleWeb.Common.IO;
 using EagleWeb.Common.Radio;
 using Newtonsoft.Json.Linq;
@@ -16,6 +15,7 @@ using EagleWeb.Core.Radio.Components;
 using EagleWeb.Core.Radio.Session;
 using EagleWeb.Core.Radio.Loop;
 using RaptorDspNet;
+using EagleWeb.Common.Auth;
 
 namespace EagleWeb.Core.Radio
 {
@@ -68,7 +68,7 @@ namespace EagleWeb.Core.Radio
             );
         }
 
-        private JObject ApiCreateSession(IEagleClient client, JObject message)
+        private JObject ApiCreateSession(IEagleAccount client, JObject message)
         {
             //Create the session
             EagleRadioSession session = new EagleRadioSession(this);

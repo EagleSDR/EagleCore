@@ -27,7 +27,6 @@ namespace EagleWeb.Core.NetObjects
         private readonly string guid;
         private readonly List<string> requiredPermissions = new List<string>();
 
-        public IEagleTarget TargetAll => Manager.TargetAll;
         public EagleNetObjectInstance Ctx => ctx;
         public EagleNetObjectManager Manager => ctx.Manager;
         public string Guid => guid;
@@ -37,21 +36,21 @@ namespace EagleWeb.Core.NetObjects
         public abstract EagleNetObjectPortType PortType { get; }
         protected abstract void CreateExtra(JObject extra);
 
-        public abstract void OnClientConnect(IEagleTarget target);
-        protected abstract void OnClientMessage(IEagleClient client, JObject message);
+        public abstract void OnClientConnect(EagleNetObjectClient client);
+        protected abstract void OnClientMessage(EagleNetObjectClient client, JObject message);
 
-        public void OnClientMessage(IEagleClient client, EagleNetObjectOpcode opcode, JObject message)
+        public void OnClientMessage(EagleNetObjectClient client, EagleNetObjectOpcode opcode, JObject message)
         {
             if (opcode == EagleNetObjectOpcode.IO_MESSAGE)
                 OnClientMessage(client, message);
         }
 
-        protected void InternalSend(IEagleTarget target, JObject payload)
+        protected void InternalSend(IEagleNetObjectTarget target, JObject payload)
         {
-            Manager.SendMessage(target, EagleNetObjectOpcode.IO_MESSAGE, guid, payload);
+            target.SendMessage(EagleNetObjectOpcode.IO_MESSAGE, guid, payload);
         }
 
-        protected bool CheckClientPermission(IEagleClient client)
+        protected bool CheckClientPermission(EagleNetObjectClient client)
         {
             //Make sure the client has all permissions
             foreach (var p in requiredPermissions)
@@ -63,7 +62,7 @@ namespace EagleWeb.Core.NetObjects
             return true;
         }
 
-        protected void EnsureClientPermission(IEagleClient client)
+        protected void EnsureClientPermission(EagleNetObjectClient client)
         {
             if (!CheckClientPermission(client))
                 throw new Exception("Sorry, you do not have permission to perform this operation.");

@@ -5,8 +5,6 @@ using System.Text;
 
 namespace EagleWeb.Common.IO
 {
-    public delegate JObject EaglePortWrappedApiHandler(IEagleClient client, JObject payload);
-
     public static class EaglePortHelpers
     {
         public static JToken GetToken(this JObject ctx, string key)
@@ -97,25 +95,6 @@ namespace EagleWeb.Common.IO
             if (TryGetObject(ctx, key, out JObject result))
                 return result;
             throw new Exception($"Request missing required object \"{key}\".");
-        }
-
-        public static IEaglePortIO BindWrappedApi(this IEaglePortIO ctx, EaglePortWrappedApiHandler handler)
-        {
-            ctx.OnReceive += (IEagleClient client, JObject payload) =>
-            {
-                JObject response = new JObject();
-                try
-                {
-                    response["result"] = handler(client, payload);
-                    response["ok"] = true;
-                } catch (Exception ex)
-                {
-                    response["ok"] = false;
-                    response["error"] = ex.Message;
-                }
-                ctx.Send(response, client);
-            };
-            return ctx;
         }
     }
 }

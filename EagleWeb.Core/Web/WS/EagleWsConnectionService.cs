@@ -11,9 +11,9 @@ namespace EagleWeb.Core.Web.WS
 {
     public delegate EagleBaseConnection EagleWsConnectionService_CreateConnection(EagleWsConnectionService ctx, EagleAccount account);
 
-    public class EagleWsConnectionService : IEagleWebServerService
+    public class EagleWsConnectionService : EagleWsConnectionService2
     {
-        public EagleWsConnectionService(EagleContext ctx, EagleWsConnectionService_CreateConnection constructor)
+        public EagleWsConnectionService(EagleContext ctx, EagleWsConnectionService_CreateConnection constructor) : base(ctx)
         {
             this.ctx = ctx;
             this.constructor = constructor;
@@ -22,45 +22,10 @@ namespace EagleWeb.Core.Web.WS
         private readonly EagleContext ctx;
         private readonly EagleWsConnectionService_CreateConnection constructor;
 
-        public EagleContext Ctx => ctx;
-
-        public async Task HandleRequest(HttpContext e)
+        protected override bool CreateConnection(HttpContext e, EagleAccount account, out EagleBaseConnection connection)
         {
-            //Make sure this is ACTUALLY a WebSocket request
-            if (!e.WebSockets.IsWebSocketRequest)
-            {
-                e.Response.StatusCode = 404;
-                return;
-            }
-
-            //Get access token
-            string token;
-            if (!e.Request.Query.TryGetString("access_token", out token))
-            {
-                e.Response.StatusCode = 401;
-                return;
-            }
-
-            //Authenticate access token
-            EagleAccount account;
-            if (!ctx.Sessions.Authenticate(token, out account))
-            {
-                e.Response.StatusCode = 403;
-                return;
-            }
-
-            //Create the connection
-            EagleBaseConnection connection = constructor(this, account);
-
-            //Do additional steps
-            if (!connection.Authenticate(e))
-                return;
-
-            //Open this as a websocket
-            WebSocket sock = await e.WebSockets.AcceptWebSocketAsync();
-
-            //Run
-            await connection.RunAsync(sock);
+            connection = constructor(this, account);
+            return true;
         }
     }
 }

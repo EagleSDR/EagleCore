@@ -53,7 +53,7 @@ namespace EagleWeb.Core.NetObjects
             return msgPorts;
         }
 
-        private void SendCreateMessage(IEagleTarget target)
+        private void SendCreateMessage(IEagleNetObjectTarget target)
         {
             //Make
             JObject msg = new JObject();
@@ -63,16 +63,16 @@ namespace EagleWeb.Core.NetObjects
             msg["ports"] = CreatePortsList();
             
             //Send
-            Manager.SendMessage(target, EagleNetObjectOpcode.OBJECT_CREATE, guid, msg);
+            target.SendMessage(EagleNetObjectOpcode.OBJECT_CREATE, guid, msg);
         }
 
-        public void OnClientConnect(IEagleTarget target)
+        public void OnClientConnect(EagleNetObjectClient target)
         {
             //Tell client about us
             SendCreateMessage(target);
         }
 
-        public void OnClientMessage(IEagleClient client, EagleNetObjectOpcode opcode, JObject message)
+        public void OnClientMessage(EagleNetObjectClient client, EagleNetObjectOpcode opcode, JObject message)
         {
             //Do nothing...
         }
@@ -88,7 +88,7 @@ namespace EagleWeb.Core.NetObjects
             Manager.Collection.ActivateGuid(this);
 
             //Notify all clients of it's creation
-            SendCreateMessage(Manager.TargetAll);
+            SendCreateMessage(Manager);
         }
 
         public void Destroy()
@@ -100,7 +100,7 @@ namespace EagleWeb.Core.NetObjects
             Manager.Collection.DeactivateGuid(this);
 
             //Notify all clients of it's destruction
-            SendCreateMessage(Manager.TargetAll);
+            SendCreateMessage(Manager);
         }
 
         public void Log(EagleLogLevel level, string topic, string message)
@@ -111,12 +111,12 @@ namespace EagleWeb.Core.NetObjects
                 extTopic += "-" + topic;
 
             //Log
-            Manager.Logger.Log(level, extTopic, message);
+            Manager.Ctx.Log(level, extTopic, message);
         }
 
         public void LogInternal(EagleLogLevel level, string message)
         {
-            Manager.Logger.Log(level, GetType().Name, message);
+            Manager.Ctx.Log(level, GetType().Name, message);
         }
     }
 }

@@ -15,21 +15,17 @@ namespace EagleWeb.Core.Web.WS
 {
     public abstract class EagleBaseConnection
     {
-        public EagleBaseConnection(EagleWsConnectionService ctx, EagleAccount account)
+        public EagleBaseConnection(EagleAccount account)
         {
-            this.ctx = ctx;
             this.account = account;
         }
 
-        private readonly EagleWsConnectionService ctx;
         private readonly EagleAccount account;
         private readonly PostingQueue<OutgoingMessage> outgoing = new PostingQueue<OutgoingMessage>();
 
         private const int DEFAULT_RECEIVE_BUFFER_SIZE = 2048;
 
         public EagleAccount Account => account;
-        public EagleWsConnectionService Service => ctx;
-        public EagleContext Context => ctx.Ctx;
 
         public async Task RunAsync(WebSocket sock)
         {

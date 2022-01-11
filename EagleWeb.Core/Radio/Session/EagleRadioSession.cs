@@ -1,4 +1,5 @@
 ﻿using EagleWeb.Common;
+using EagleWeb.Common.Auth;
 using EagleWeb.Common.NetObjects;
 using EagleWeb.Common.NetObjects.IO;
 using EagleWeb.Common.Radio;
@@ -44,7 +45,7 @@ namespace EagleWeb.Core.Radio.Session
             base.ConfigureObject(context);
 
             //Create ports
-            portDelete = context.CreatePortApi("Delete").Bind((IEagleClient client, JObject message) =>
+            portDelete = context.CreatePortApi("Delete").Bind((IEagleAccount account, JObject message) =>
             {
                 //Set
                 userRequestedRemoval = true;

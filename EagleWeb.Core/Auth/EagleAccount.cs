@@ -1,5 +1,4 @@
 ﻿using EagleWeb.Common.Auth;
-using EagleWeb.Common.IO.DataProperty;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -61,7 +60,7 @@ namespace EagleWeb.Core.Auth
         public void EnsureHasPermission(string permission)
         {
             if (!HasPermission(permission))
-                throw new EagleDataPropertySetException(EagleDataPropertySetStatus.UNAUTHORIZED, $"Requires permission \"{permission}\", but {Username} doesn't have this!");
+                throw new Exception($"Requires permission \"{permission}\", but {Username} doesn't have this!");
         }
     }
 }

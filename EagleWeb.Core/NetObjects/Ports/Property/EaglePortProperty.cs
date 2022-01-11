@@ -44,13 +44,13 @@ namespace EagleWeb.Core.NetObjects.Ports.Property
             return this;
         }
 
-        public override void OnClientConnect(IEagleTarget target)
+        public override void OnClientConnect(EagleNetObjectClient target)
         {
             //Send client the event
             SendUpdateNotification(target);
         }
 
-        protected override void OnClientMessage(IEagleClient client, JObject message)
+        protected override void OnClientMessage(EagleNetObjectClient client, JObject message)
         {
             //Unwrap
             string opcode;
@@ -65,7 +65,7 @@ namespace EagleWeb.Core.NetObjects.Ports.Property
             }
         }
 
-        private void HandleSet(IEagleClient client, JObject message)
+        private void HandleSet(EagleNetObjectClient client, JObject message)
         {
             //Unwrap
             string token;
@@ -111,7 +111,7 @@ namespace EagleWeb.Core.NetObjects.Ports.Property
             InternalSend(client, "ACK", output);
         }
 
-        protected void InternalSend(IEagleTarget target, string opcode, JObject payload)
+        protected void InternalSend(IEagleNetObjectTarget target, string opcode, JObject payload)
         {
             JObject output = new JObject();
             output["opcode"] = opcode;
@@ -131,7 +131,7 @@ namespace EagleWeb.Core.NetObjects.Ports.Property
             extra["required_permissions"] = arr;
         }
 
-        private void SendUpdateNotification(IEagleTarget target)
+        private void SendUpdateNotification(IEagleNetObjectTarget target)
         {
             //Create
             JToken data = WebSerialize(Value);
@@ -144,7 +144,7 @@ namespace EagleWeb.Core.NetObjects.Ports.Property
             InternalSend(target, "UPDATE", wrapping);
         }
 
-        private void SetValue(T value, IEagleClient client)
+        private void SetValue(T value, EagleNetObjectClient client)
         {
             //If this is a web account, do some validation
             if (client != null)
@@ -153,7 +153,7 @@ namespace EagleWeb.Core.NetObjects.Ports.Property
             }
 
             //Create args
-            PropertySetArgs args = new PropertySetArgs(value, client, this);
+            PropertySetArgs args = new PropertySetArgs(value, client != null, this);
 
             //Dispatch event
             OnChanged?.Invoke(args);
@@ -162,7 +162,7 @@ namespace EagleWeb.Core.NetObjects.Ports.Property
             this.value = args.Value;
 
             //Send web event to all
-            SendUpdateNotification(TargetAll);
+            SendUpdateNotification(Manager);
         }
 
         public IEaglePortProperty<T> RequirePermission(string permission)
@@ -176,20 +176,19 @@ namespace EagleWeb.Core.NetObjects.Ports.Property
 
         class PropertySetArgs : IEaglePortPropertySetArgs<T>
         {
-            public PropertySetArgs(T value, IEagleClient client, EaglePortProperty<T> port)
+            public PropertySetArgs(T value, bool fromWeb, EaglePortProperty<T> port)
             {
                 this.value = value;
-                this.client = client;
+                this.fromWeb = fromWeb;
                 this.port = port;
             }
 
             private T value;
-            private IEagleClient client;
+            private bool fromWeb;
             private EaglePortProperty<T> port;
 
             public IEaglePortProperty<T> Port => port;
-            public IEagleClient Client => client;
-            public bool FromWeb => client != null;
+            public bool FromWeb => fromWeb;
             public T Value { get => value; set => this.value = value; }
         }
     }

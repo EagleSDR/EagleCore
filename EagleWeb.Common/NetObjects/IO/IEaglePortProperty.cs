@@ -12,11 +12,6 @@ namespace EagleWeb.Common.NetObjects.IO
         IEaglePortProperty<T> Port { get; }
 
         /// <summary>
-        /// The client that initiated the change. NOTE: MAY BE NULL!
-        /// </summary>
-        IEagleClient Client { get; }
-
-        /// <summary>
         /// True if a web client initiated this, false if it was initiated on the serverside.
         /// </summary>
         bool FromWeb { get; }

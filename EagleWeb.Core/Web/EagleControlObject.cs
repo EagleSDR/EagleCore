@@ -1,4 +1,5 @@
 ﻿using EagleWeb.Common;
+using EagleWeb.Common.Auth;
 using EagleWeb.Common.NetObjects;
 using Newtonsoft.Json.Linq;
 using System;
@@ -25,7 +26,7 @@ namespace EagleWeb.Core.Web
                 .Bind(GetPluginModulesHandler);
         }
 
-        private JObject GetComponentsHandler(IEagleClient client, JObject request)
+        private JObject GetComponentsHandler(IEagleAccount account, JObject request)
         {
             JObject response = new JObject();
             response["radio"] = ctx.Radio.Guid;
@@ -33,7 +34,7 @@ namespace EagleWeb.Core.Web
             return response;
         }
 
-        private JObject GetPluginModulesHandler(IEagleClient client, JObject request)
+        private JObject GetPluginModulesHandler(IEagleAccount account, JObject request)
         {
             //Enumerate plugins
             JObject plugins = new JObject();

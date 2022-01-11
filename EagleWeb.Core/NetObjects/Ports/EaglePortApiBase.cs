@@ -15,7 +15,7 @@ namespace EagleWeb.Core.NetObjects.Ports
         {
         }
 
-        protected override void OnClientMessage(IEagleClient client, JObject message)
+        protected override void OnClientMessage(EagleNetObjectClient client, JObject message)
         {
             //Unwrap
             string token;
@@ -57,6 +57,6 @@ namespace EagleWeb.Core.NetObjects.Ports
             InternalSend(client, output);
         }
 
-        protected abstract JObject OnClientApiCommand(IEagleClient client, JObject message);
+        protected abstract JObject OnClientApiCommand(EagleNetObjectClient client, JObject message);
     }
 }

@@ -110,14 +110,14 @@ namespace EagleWeb.Core.Web.FileSystem
 
         /* API */
 
-        private JObject ApiHandleFileOpen(IEagleClient client, JObject payload)
+        private JObject ApiHandleFileOpen(IEagleAccount account, JObject payload)
         {
             //Get arguments
             string filename = payload.GetString("filename");
             bool write = payload.GetBool("write");
 
             //Open
-            string token = UserOpenFile(client.Account, filename, write);
+            string token = UserOpenFile(account, filename, write);
 
             //Make response
             JObject response = new JObject();

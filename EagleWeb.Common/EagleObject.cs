@@ -9,7 +9,7 @@ namespace EagleWeb.Common
     /// <summary>
     /// An object replicated both on the server and on clients
     /// </summary>
-    public class EagleObject : IEagleObjectManagerLink, IDisposable
+    public class EagleObject : IEagleObject, IEagleObjectManagerLink, IDisposable
     {
         public EagleObject(IEagleObjectManagerLink link, JObject info = null)
         {

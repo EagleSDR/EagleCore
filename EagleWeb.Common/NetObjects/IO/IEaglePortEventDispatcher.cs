@@ -1,11 +1,12 @@
-﻿using Newtonsoft.Json.Linq;
+﻿using EagleWeb.Common.Auth;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Text;
 
 namespace EagleWeb.Common.NetObjects.IO
 {
-    public delegate void IEaglePortEventDispatcher_Handler(IEagleClient client, JObject message);
+    public delegate void IEaglePortEventDispatcher_Handler(IEagleAccount client, JObject message);
 
     public interface IEaglePortEventDispatcher : IEagleObjectPort
     {

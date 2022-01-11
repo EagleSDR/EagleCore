@@ -1,20 +1,17 @@
 ﻿using EagleWeb.Common;
 using EagleWeb.Common.IO;
-using EagleWeb.Common.IO.DataProperty;
 using EagleWeb.Common.IO.FileSystem;
-using EagleWeb.Common.IO.Streams;
 using EagleWeb.Common.NetObjects;
 using EagleWeb.Common.Radio;
+using EagleWeb.Common.IO.Sockets;
 using EagleWeb.Core.Auth;
 using EagleWeb.Core.NetObjects;
 using EagleWeb.Core.Plugins;
 using EagleWeb.Core.Radio;
 using EagleWeb.Core.Web;
 using EagleWeb.Core.Web.FileSystem;
-using EagleWeb.Core.Web.IO.DataProperty;
-using EagleWeb.Core.Web.IO.Rpc;
-using EagleWeb.Core.Web.IO.Streams;
 using EagleWeb.Core.Web.Services;
+using EagleWeb.Core.Web.Sockets;
 using EagleWeb.Core.Web.WS;
 using System;
 using System.Collections.Generic;
@@ -36,11 +33,10 @@ namespace EagleWeb.Core
             //Make core components
             auth = new EagleAuthManager(this, workingPathname + "accounts.json");
             sessions = new EagleSessionManager(auth, workingPathname + "sessions.json");
-            rpcManager = new EagleRpcManager(this);
-            objectManager = new EagleNetObjectManager(this, rpcManager);
+            objectManager = new EagleNetObjectManager(this);
+            sockManager = new EagleSocketManager(this);
 
             //Make others
-            streamManager = new EagleStreamService(this);
             pluginManager = new EaglePluginManager(this, new DirectoryInfo(workingPathname).CreateSubdirectory("plugins"));
             fileManager = new WebFsManager(this, new DirectoryInfo(workingPathname).CreateSubdirectory("home"));
             radio = new EagleRadio(this);
@@ -54,8 +50,8 @@ namespace EagleWeb.Core
             http.RegisterService("/api/login", new LoginService(this));
             http.RegisterService("/api/asset", new EagleAssetService(pluginManager));
 
-            http.RegisterService("/ws/stream", streamManager);
-            http.RegisterService("/ws/rpc", new EagleWsConnectionService(this, (EagleWsConnectionService ctx, EagleAccount account) => new EagleRpcConnection(ctx, rpcManager, account)));
+            http.RegisterService("/ws/sock", sockManager);
+            http.RegisterService("/ws/rpc", objectManager);
 
             http.RegisterService("/", new EagleFileService(@"C:\Users\Roman\source\repos\EagleWeb-JS\EagleWebCore\dist\index.html", "text/html"));
             http.RegisterService("/main.js", new EagleFileService(@"C:\Users\Roman\source\repos\EagleWeb-JS\EagleWebCore\dist\main.js", "text/javascript"));
@@ -65,10 +61,9 @@ namespace EagleWeb.Core
         private readonly EagleAuthManager auth;
         private readonly EagleSessionManager sessions;
         private readonly EagleWebServer http;
-        private readonly EagleRpcManager rpcManager;
         private readonly EagleNetObjectManager objectManager;
+        private readonly EagleSocketManager sockManager;
 
-        private readonly EagleStreamService streamManager;
         private readonly EaglePluginManager pluginManager;
         private readonly WebFsManager fileManager;
         private readonly EagleRadio radio;
@@ -79,7 +74,6 @@ namespace EagleWeb.Core
         public DirectoryInfo Root => new DirectoryInfo(workingPathname);
         public EagleAuthManager Auth => auth;
         public EagleSessionManager Sessions => sessions;
-        public EagleStreamService StreamManager => streamManager;
         public EaglePluginManager PluginManager => pluginManager;
         public WebFsManager FileManager => fileManager;
         internal EagleRadio Radio => radio;
@@ -111,6 +105,13 @@ namespace EagleWeb.Core
 
             //Log
             Console.WriteLine($"[{DateTime.Now.ToLongTimeString()}] [{Thread.CurrentThread.ManagedThreadId}] [{topic}] {message}");
+        }
+
+        /* API */
+
+        public IEagleSocketServer RegisterSocketServer(string friendlyName, IEagleSocketHandler handler)
+        {
+            return sockManager.RegisterServer(friendlyName, handler);
         }
 
         public WebFsFileStream ResolveFileToken(string token)

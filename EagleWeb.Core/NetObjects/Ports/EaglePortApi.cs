@@ -1,4 +1,5 @@
 ﻿using EagleWeb.Common;
+using EagleWeb.Common.Auth;
 using EagleWeb.Common.IO;
 using EagleWeb.Common.NetObjects.IO;
 using EagleWeb.Core.NetObjects.Enums;
@@ -13,7 +14,7 @@ namespace EagleWeb.Core.NetObjects.Ports
     {
         public EaglePortApi(EagleNetObjectInstance ctx, string name) : base(ctx, name)
         {
-            handler = (IEagleClient client, JObject message) =>
+            handler = (IEagleAccount client, JObject message) =>
             {
                 throw new Exception($"Plugin Error: This API ({name}) is not implemented by the plugin.");
             };
@@ -36,18 +37,18 @@ namespace EagleWeb.Core.NetObjects.Ports
             
         }
 
-        public override void OnClientConnect(IEagleTarget target)
+        public override void OnClientConnect(EagleNetObjectClient target)
         {
             
         }
 
-        protected override JObject OnClientApiCommand(IEagleClient client, JObject message)
+        protected override JObject OnClientApiCommand(EagleNetObjectClient client, JObject message)
         {
             //Validate that we have permission
             EnsureClientPermission(client);
 
             //Run handler
-            return handler(client, message);
+            return handler(client.Account, message);
         }
 
         public IEaglePortApi RequirePermission(string permission)

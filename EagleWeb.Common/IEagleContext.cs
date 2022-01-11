@@ -13,6 +13,7 @@ namespace EagleWeb.Common
     {
         int BufferSize { get; }
 
+        IEagleRadio Radio { get; }
         WebFsFileStream ResolveFileToken(string token);
     }
 }

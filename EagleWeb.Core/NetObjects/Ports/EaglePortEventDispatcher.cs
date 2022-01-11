@@ -25,14 +25,14 @@ namespace EagleWeb.Core.NetObjects.Ports
             return this;
         }
 
-        public override void OnClientConnect(IEagleTarget target)
+        public override void OnClientConnect(EagleNetObjectClient target)
         {
             
         }
 
         public void Push(JObject message)
         {
-            InternalSend(TargetAll, message);
+            InternalSend(Manager, message);
         }
 
         protected override void CreateExtra(JObject extra)
@@ -40,9 +40,9 @@ namespace EagleWeb.Core.NetObjects.Ports
             
         }
 
-        protected override void OnClientMessage(IEagleClient client, JObject message)
+        protected override void OnClientMessage(EagleNetObjectClient client, JObject message)
         {
-            OnReceive?.Invoke(client, message);
+            OnReceive?.Invoke(client.Account, message);
         }
     }
 }
