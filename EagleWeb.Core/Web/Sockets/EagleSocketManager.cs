@@ -18,6 +18,14 @@ namespace EagleWeb.Core.Web.Sockets
         private Dictionary<string, EagleSocketServer> registeredNames = new Dictionary<string, EagleSocketServer>();
         private GuidDictionary<EagleSocketServer> registered = new GuidDictionary<EagleSocketServer>();
 
+        public Dictionary<string, string> GetNameMap()
+        {
+            Dictionary<string, string> result = new Dictionary<string, string>();
+            foreach (var n in registeredNames)
+                result.Add(n.Key, n.Value.Id);
+            return result;
+        }
+
         public IEagleSocketServer RegisterServer(string friendlyName, IEagleSocketHandler handler)
         {
             //Put in the registered collection

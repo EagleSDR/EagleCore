@@ -16,6 +16,7 @@ namespace EagleWeb.Common.Plugin
         private IEagleObjectPluginContext context;
 
         protected IEagleContext Context => context.Context;
+        protected IEagleObjectPluginContext Plugin => context;
 
         public abstract void PluginInit();
     }

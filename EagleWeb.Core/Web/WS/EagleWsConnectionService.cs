@@ -9,9 +9,9 @@ using System.Threading.Tasks;
 
 namespace EagleWeb.Core.Web.WS
 {
-    public delegate EagleBaseConnection EagleWsConnectionService_CreateConnection(EagleWsConnectionService ctx, EagleAccount account);
+    delegate EagleBaseConnection EagleWsConnectionService_CreateConnection(EagleWsConnectionService ctx, EagleAccount account);
 
-    public class EagleWsConnectionService : EagleWsConnectionService2
+    class EagleWsConnectionService : EagleWsConnectionService2
     {
         public EagleWsConnectionService(EagleContext ctx, EagleWsConnectionService_CreateConnection constructor) : base(ctx)
         {

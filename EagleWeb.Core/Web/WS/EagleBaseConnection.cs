@@ -13,7 +13,7 @@ using System.Threading.Tasks;
 
 namespace EagleWeb.Core.Web.WS
 {
-    public abstract class EagleBaseConnection
+    abstract class EagleBaseConnection
     {
         public EagleBaseConnection(EagleAccount account)
         {

@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace EagleWeb.Core.Web.Services
 {
-    public class LoginService : IEagleWebServerService
+    class LoginService : IEagleWebServerService
     {
         public LoginService(EagleContext ctx)
         {

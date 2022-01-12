@@ -9,7 +9,7 @@ using System.Text;
 
 namespace EagleWeb.Core.Auth
 {
-    public class EagleAuthManager
+    class EagleAuthManager
     {
         public EagleAuthManager(EagleContext ctx, string authFilename)
         {

@@ -45,6 +45,7 @@ namespace EagleWeb.Core.Web.Services
         {
             JObject response = new JObject();
             response["plugins"] = CreateResponsePlugins();
+            response["sockets"] = JObject.FromObject(ctx.Sockets.GetNameMap());
             return response;
         }
 

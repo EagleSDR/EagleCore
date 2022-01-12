@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace EagleWeb.Core.Web.WS
 {
-    public abstract class EagleWsConnectionService2 : IEagleWebServerService
+    abstract class EagleWsConnectionService2 : IEagleWebServerService
     {
         public EagleWsConnectionService2(EagleContext ctx)
         {

@@ -22,7 +22,7 @@ using System.Threading;
 
 namespace EagleWeb.Core
 {
-    public class EagleContext : IEagleContext, IEagleLogger, IEagleObjectManagerLink
+    class EagleContext : IEagleContext, IEagleLogger, IEagleObjectManagerLink
     {
         public EagleContext(string workingPathname)
         {
@@ -74,9 +74,10 @@ namespace EagleWeb.Core
         public DirectoryInfo Root => new DirectoryInfo(workingPathname);
         public EagleAuthManager Auth => auth;
         public EagleSessionManager Sessions => sessions;
+        public EagleSocketManager Sockets => sockManager;
         public EaglePluginManager PluginManager => pluginManager;
         public WebFsManager FileManager => fileManager;
-        internal EagleRadio Radio => radio;
+        public IEagleRadio Radio => radio;
         public IEagleObjectManager ObjectManager => objectManager;
 
         public void Init()

@@ -1,4 +1,5 @@
 ﻿using EagleWeb.Common;
+using EagleWeb.Common.IO.Sockets;
 using EagleWeb.Common.NetObjects;
 using EagleWeb.Common.Plugin;
 using System;
@@ -10,7 +11,7 @@ using System.Text;
 
 namespace EagleWeb.Core.Plugins
 {
-    public class EagleLoadedPlugin : IEagleObjectPluginContext
+    class EagleLoadedPlugin : IEagleObjectPluginContext
     {
         public EagleLoadedPlugin(EaglePluginInfo info, EaglePluginManager manager)
         {
@@ -23,12 +24,15 @@ namespace EagleWeb.Core.Plugins
         private readonly EaglePluginManager manager;
         private readonly AssemblyLoadContext loader;
         private readonly Dictionary<string, EagleObjectPlugin> modules = new Dictionary<string, EagleObjectPlugin>();
+        private readonly Dictionary<string, IEagleSocketServer> sockets = new Dictionary<string, IEagleSocketServer>();
 
         public EaglePluginInfo Info => info;
         public string PluginId => GeneratePluginId(info);
-        public IEagleContext Context => manager.Ctx;
+        public EagleContext Context => manager.Ctx;
         public IEagleObjectManager ObjectManager => manager.Ctx.ObjectManager;
         public Dictionary<string, EagleObjectPlugin> Modules => modules;
+        public Dictionary<string, IEagleSocketServer> Sockets => sockets;
+        IEagleContext IEagleObjectPluginContext.Context => Context;
 
         private void Log(EagleLogLevel level, string message)
         {
@@ -58,6 +62,23 @@ namespace EagleWeb.Core.Plugins
         private static string GeneratePluginId(EaglePluginInfo info)
         {
             return info.developer_name + "." + info.plugin_name;
+        }
+
+        /* API */
+
+        public IEagleSocketServer RegisterSocketServer(string friendlyName, IEagleSocketHandler handler)
+        {
+            //Wrap the friendly name
+            friendlyName = PluginId + "." + friendlyName;
+
+            //Run normally
+            IEagleSocketServer server = Context.RegisterSocketServer(friendlyName, handler);
+
+            //Add
+            lock (sockets)
+                sockets.Add(friendlyName, server);
+
+            return server;
         }
     }
 }

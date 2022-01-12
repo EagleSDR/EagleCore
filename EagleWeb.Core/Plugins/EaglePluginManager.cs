@@ -12,7 +12,7 @@ using System.Text;
 
 namespace EagleWeb.Core.Plugins
 {
-    public class EaglePluginManager
+    class EaglePluginManager
     {
         public EaglePluginManager(EagleContext ctx, DirectoryInfo pluginDir)
         {

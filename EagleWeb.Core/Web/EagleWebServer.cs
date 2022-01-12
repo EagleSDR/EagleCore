@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace EagleWeb.Core.Web
 {
-    public class EagleWebServer
+    class EagleWebServer
     {
         public EagleWebServer(EagleContext ctx, int port)
         {

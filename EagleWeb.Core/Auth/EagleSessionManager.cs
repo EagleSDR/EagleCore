@@ -8,7 +8,7 @@ using System.Text;
 
 namespace EagleWeb.Core.Auth
 {
-    public class EagleSessionManager
+    class EagleSessionManager
     {
         public EagleSessionManager(EagleAuthManager auth, string filename)
         {
@@ -19,8 +19,6 @@ namespace EagleWeb.Core.Auth
         private EagleAuthManager auth;
         private DataFile<Dictionary<string, string>> sessions;
         private Dictionary<string, EagleAccount> cache = new Dictionary<string, EagleAccount>();
-
-        //private ConcurrentDictionary<string, EagleAccount> sessions = new ConcurrentDictionary<string, EagleAccount>();
 
         public bool Authenticate(string token, out EagleAccount account)
         {

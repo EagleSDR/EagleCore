@@ -3,12 +3,8 @@ using EagleWeb.Common.Auth;
 using EagleWeb.Common.NetObjects;
 using EagleWeb.Common.NetObjects.IO;
 using EagleWeb.Common.Radio;
-using EagleWeb.Common.Radio.Components;
 using EagleWeb.Common.Radio.Modules;
 using EagleWeb.Core.Misc;
-using EagleWeb.Core.Radio.Components;
-using EagleWeb.Core.Radio.Components.FilterBuilder;
-using EagleWeb.Core.Radio.Components.Filters;
 using EagleWeb.Core.Radio.Loop;
 using Newtonsoft.Json.Linq;
 using RaptorDspNet;
@@ -19,12 +15,12 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace EagleWeb.Core.Radio.Session
+namespace EagleWeb.Core.Radio
 {
     /// <summary>
     /// Represents a VFO.
     /// </summary>
-    internal class EagleRadioSession : EagleLoop
+    internal class EagleRadioSession : EagleLoop, IEagleRadioSession
     {
         public EagleRadioSession(EagleRadio radio) : base(radio)
         {
@@ -91,6 +87,16 @@ namespace EagleWeb.Core.Radio.Session
         private IEagleLoopPortProperty<float> propBandwidth;
         private IEagleLoopPortProperty<EagleModuleDemodulator> propDemodulator;
 
+        //PIPES
+        private EagleRadioPort<EagleComplex> portVfo = new EagleRadioPort<EagleComplex>("VFO");
+        private EagleRadioPort<EagleComplex> portIf = new EagleRadioPort<EagleComplex>("IF");
+        private EagleRadioPort<EagleStereoPair> portAudio = new EagleRadioPort<EagleStereoPair>("Audio");
+
+        //GETTERS
+        public IEagleRadioPort<EagleComplex> PortVFO => portVfo;
+        public IEagleRadioPort<EagleComplex> PortIF => portIf;
+        public IEagleRadioPort<EagleStereoPair> PortAudio => portAudio;
+
         /// <summary>
         /// Sets settings to be applied.
         /// </summary>
@@ -127,6 +133,9 @@ namespace EagleWeb.Core.Radio.Session
             if (propBandwidth.Value >= inputSampleRate || propBandwidth.Value <= 0)
                 throw new Exception($"Bandwidth {propBandwidth.Value} is invalid.");
 
+            //Configure pipe
+            portVfo.SampleRate = inputSampleRate;
+
             //Configure rotator
             rotator.SetSampleRate(inputSampleRate);
             rotator.SetFreqOffset(propFrequencyOffset.Value);
@@ -140,8 +149,10 @@ namespace EagleWeb.Core.Radio.Session
                     filterIf.Configure(taps, builder.CalculateDecimation(&decimatedSampleRate));
             }
 
-            //Configure demodulator
+            //Configure demodulator and pipes
+            portIf.SampleRate = decimatedSampleRate;
             float audioSampleRate = propDemodulator.Value.Configure(decimatedSampleRate);
+            portAudio.SampleRate = audioSampleRate;
 
             //Log
             Log(EagleLogLevel.DEBUG, $"Reconfigured session: {inputSampleRate} -> [bw={propBandwidth.Value}] -> {decimatedSampleRate} -> [demod={propDemodulator.Value.GetType().FullName}] -> {audioSampleRate}");
@@ -157,8 +168,14 @@ namespace EagleWeb.Core.Radio.Session
             //Rotate into our buffer
             rotator.Process(inBuffer, bufferIq, count);
 
+            //Send out
+            portVfo.Output((EagleComplex*)bufferIq.Pointer, count);
+
             //Filter
             count = filterIf.Process(bufferIq, bufferIq, count);
+
+            //Send out
+            portIf.Output((EagleComplex*)bufferIq.Pointer, count);
         }
 
         public override void Dispose()

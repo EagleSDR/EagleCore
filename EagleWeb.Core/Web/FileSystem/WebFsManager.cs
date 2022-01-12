@@ -13,7 +13,7 @@ using System.Text;
 
 namespace EagleWeb.Core.Web.FileSystem
 {
-    public class WebFsManager : EagleObject
+    class WebFsManager : EagleObject
     {
         public WebFsManager(EagleContext ctx, DirectoryInfo root) : base(ctx)
         {

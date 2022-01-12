@@ -9,6 +9,7 @@ namespace EagleWeb.Common.Radio
     /// </summary>
     public interface IEagleRadioPort<T> where T : unmanaged
     {
+        string Name { get; }
         float SampleRate { get; }
         event IEagleRadioPort_SampleRateChanged<T> OnSampleRateChanged;
         event IEagleRadioPort_Output<T> OnOutput;

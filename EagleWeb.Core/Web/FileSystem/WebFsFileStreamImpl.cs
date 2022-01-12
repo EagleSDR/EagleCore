@@ -7,7 +7,7 @@ using System.Text;
 
 namespace EagleWeb.Core.Web.FileSystem
 {
-    public class WebFsFileStreamImpl : WebFsFileStream
+    class WebFsFileStreamImpl : WebFsFileStream
     {
         public WebFsFileStreamImpl(WebFsManager context, string token, string filename, IEagleAccount account, bool writing)
         {

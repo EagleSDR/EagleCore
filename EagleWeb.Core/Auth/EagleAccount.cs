@@ -5,7 +5,7 @@ using System.Text;
 
 namespace EagleWeb.Core.Auth
 {
-    public class EagleAccount : IEagleAccount
+    class EagleAccount : IEagleAccount
     {
         public EagleAccount(EagleAccountData data, EagleAuthManager auth)
         {
