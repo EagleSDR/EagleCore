@@ -29,6 +29,9 @@ namespace EagleWeb.Core.NetObjects
             //Dispatch
             manager.Collection.Enumerate((IEagleNetObjectInternalIO o) => o.OnClientConnect(this));
 
+            //Bind to manager to recieve events
+            manager.AddClient(this);
+
             //Notify about the control object. The control object is a "static" object that clients are told about. It's used to get everything else.
             if (manager.Control != null)
                 SendMessage(EagleNetObjectOpcode.SET_CONTROL_OBJECT, manager.Control.Guid, new JObject());
@@ -81,7 +84,8 @@ namespace EagleWeb.Core.NetObjects
 
         protected override void ClientClosed()
         {
-            
+            //Unbind from manager to stop events
+            manager.RemoveClient(this);
         }
 
         private void Log(EagleLogLevel log, string msg)
