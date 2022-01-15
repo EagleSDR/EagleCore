@@ -112,6 +112,14 @@ namespace EagleWeb.Core.Radio
             //Read from radio
             int count = propSource.Value.Read((EagleComplex*)bufferIq.Pointer, BUFFER_SIZE);
 
+            //If we read no samples, assume this is the end of stream
+            if (count == 0)
+            {
+                Log(EagleLogLevel.INFO, "Stopping radio: Source returned no samples, assuming end of stream...");
+                Enabled.Value = false;
+                return;
+            }
+
             //Send out
             pipeOutput.Output((EagleComplex*)bufferIq.Pointer, count);
 
