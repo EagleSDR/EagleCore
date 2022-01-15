@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "EagleWeb.Launcher": {
+      "commandName": "Project",
+      "commandLineArgs": "--eagle-directory C:\\Users\\Roman\\Desktop\\EagleSDR\\ --exec-path C:\\Users\\Roman\\source\\repos\\EagleWeb\\EagleWeb.Core\\bin\\Debug\\netcoreapp3.1\\EagleWeb.Core.exe --developer"
+    }
+  }
+}

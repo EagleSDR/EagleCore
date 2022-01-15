@@ -9,8 +9,19 @@ namespace EagleWeb.Core
 
         static void Main(string[] args)
         {
+            //Get install path
+            string installPath;
+            if (args.Length != 1)
+            {
+                Console.WriteLine("Required install path argument is missing.");
+                return;
+            } else
+            {
+                installPath = args[0];
+            }
+
             //Create the context
-            context = new EagleContext(@"C:\Users\Roman\Desktop\EagleSDR\");
+            context = new EagleContext(installPath);
 
             //Prompt to set up a new admin user if needed
             if (context.Auth.AccountCount == 0)
