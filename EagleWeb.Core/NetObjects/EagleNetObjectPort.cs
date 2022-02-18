@@ -36,7 +36,7 @@ namespace EagleWeb.Core.NetObjects
         public abstract EagleNetObjectPortType PortType { get; }
         protected abstract void CreateExtra(JObject extra);
 
-        public abstract void OnClientConnect(EagleNetObjectClient client);
+        public abstract void OnClientConnect(IEagleNetObjectTarget client);
         protected abstract void OnClientMessage(EagleNetObjectClient client, JObject message);
 
         public void OnClientMessage(EagleNetObjectClient client, EagleNetObjectOpcode opcode, JObject message)

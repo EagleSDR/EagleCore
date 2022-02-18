@@ -9,6 +9,7 @@ namespace EagleWeb.Core.NetObjects.Enums
         OBJECT_CREATE = 1,
         OBJECT_DESTROY = 2,
         IO_MESSAGE = 3,
-        SET_CONTROL_OBJECT = 4
+        SET_CONTROL_OBJECT = 4,
+        OBJECT_READY = 5
     }
 }

@@ -1,4 +1,5 @@
-﻿using EagleWeb.Common.IO.Sockets;
+﻿using EagleWeb.Common;
+using EagleWeb.Common.IO.Sockets;
 using EagleWeb.Core.Auth;
 using EagleWeb.Core.Web.WS;
 using System;
@@ -26,6 +27,7 @@ namespace EagleWeb.Core.Web.Sockets
 
         public string Id => id.ToString();
         public string FriendlyName => friendlyName;
+        public IEagleContext Context => ctx;
 
         public void AddClient(EagleSocketClient client)
         {

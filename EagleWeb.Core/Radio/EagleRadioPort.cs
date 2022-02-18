@@ -7,9 +7,10 @@ namespace EagleWeb.Core.Radio
 {
     class EagleRadioPort<T> : IEagleRadioPort<T> where T : unmanaged
     {
-        public EagleRadioPort(string name)
+        public EagleRadioPort(string name, float sampleRate = 0)
         {
             this.name = name;
+            this.sampleRate = sampleRate;
         }
 
         private string name;

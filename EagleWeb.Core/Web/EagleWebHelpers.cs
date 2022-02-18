@@ -2,6 +2,7 @@
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
@@ -35,6 +36,17 @@ namespace EagleWeb.Core.Web
                 result = null;
                 return false;
             }
+        }
+
+        public static async Task<T> ReadAsJsonAsync<T>(this HttpRequest request)
+        {
+            //Read
+            string raw;
+            using (StreamReader sr = new StreamReader(request.Body))
+                raw = await sr.ReadToEndAsync();
+
+            //Decode as JSON
+            return JsonConvert.DeserializeObject<T>(raw);
         }
 
         public static Task WriteJsonAsync<T>(this HttpResponse response, T value)

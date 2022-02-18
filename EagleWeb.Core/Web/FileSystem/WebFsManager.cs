@@ -24,18 +24,30 @@ namespace EagleWeb.Core.Web.FileSystem
         private Dictionary<string, WebFsFileStreamImpl> streams = new Dictionary<string, WebFsFileStreamImpl>();
 
         private IEaglePortApi portFileOpen;
+        private IEaglePortApi portDirInfo;
+        private IEaglePortApi portDirCreate;
+        private IEaglePortApi portDelete;
+        private IEaglePortApi portQueryQuota;
 
         protected override void ConfigureObject(IEagleObjectConfigureContext context)
         {
             base.ConfigureObject(context);
             portFileOpen = context.CreatePortApi("OpenFile")
                 .Bind(ApiHandleFileOpen);
+            portDirInfo = context.CreatePortApi("QueryDirectory")
+               .Bind(ApiHandleListDirectory);
+            portDirCreate = context.CreatePortApi("CreateDirectory")
+               .Bind(ApiHandleCreateDirectory);
+            portDelete = context.CreatePortApi("Delete")
+               .Bind(ApiHandleDelete);
+            portQueryQuota = context.CreatePortApi("QueryQuota")
+               .Bind(ApiHandleQueryQuota);
         }
 
         public string UserOpenFile(IEagleAccount account, string path, bool writing)
         {
             //Determine the whole path
-            FileInfo file = new FileInfo(Path.Combine(GetUserDirectory(account).FullName, path));
+            FileInfo file = new FileInfo(ResolveUserPath(account, path));
 
             //Ensure this is within the user's directory
             EnsureUserDirectory(file, account);
@@ -108,6 +120,60 @@ namespace EagleWeb.Core.Web.FileSystem
                 streams.Remove(token);
         }
 
+        private JObject SerializeDirectoryInfo(IEagleAccount account, DirectoryInfo dir)
+        {
+            //Query
+            var subdirs = dir.GetDirectories();
+            var files = dir.GetFiles();
+
+            //Serialize file list
+            JArray resultFiles = new JArray();
+            foreach (var f in files)
+            {
+                resultFiles.Add(new JObject()
+                {
+                    {"name", f.Name },
+                    {"size", f.Length / 1024.0 }, // Convert to KB so JavaScript doesn't start to have floating point issues with BIG files
+                    {"last_modified", f.LastWriteTimeUtc }
+                });
+            }
+
+            //Serialize the directory list
+            JArray resultSubdirs = new JArray();
+            foreach (var d in subdirs)
+            {
+                resultSubdirs.Add(new JObject()
+                {
+                    {"name", d.Name },
+                    {"last_modified", d.LastWriteTimeUtc }
+                });
+            }
+
+            //Determine the tree
+            JArray path = new JArray();
+            DirectoryInfo root = GetUserDirectory(account);
+            DirectoryInfo cursor = dir;
+            while (cursor.FullName.TrimEnd(Path.DirectorySeparatorChar) != root.FullName.TrimEnd(Path.DirectorySeparatorChar))
+            {
+                path.Insert(0, cursor.Name);
+                cursor = cursor.Parent;
+            }
+
+            //Create response
+            JObject response = new JObject();
+            response["files"] = resultFiles;
+            response["subdirectories"] = resultSubdirs;
+            response["name"] = dir.Name;
+            response["path"] = path;
+            response["volume"] = account.Username;
+            return response;
+        }
+
+        private string ResolveUserPath(IEagleAccount account, string path)
+        {
+            return GetUserDirectory(account).FullName + path.Replace('/', Path.DirectorySeparatorChar);
+        }
+
         /* API */
 
         private JObject ApiHandleFileOpen(IEagleAccount account, JObject payload)
@@ -122,6 +188,87 @@ namespace EagleWeb.Core.Web.FileSystem
             //Make response
             JObject response = new JObject();
             response["token"] = token;
+            return response;
+        }
+
+        private JObject ApiHandleListDirectory(IEagleAccount account, JObject payload)
+        {
+            //Get arguments
+            DirectoryInfo dir = new DirectoryInfo(ResolveUserPath(account, payload.GetString("path")));
+
+            //Ensure this is within the user's directory
+            EnsureUserDirectory(dir, account);
+
+            //Make sure it exists
+            if (!dir.Exists)
+                dir.Create();
+
+            //Serialize
+            return SerializeDirectoryInfo(account, dir);
+        }
+
+        private JObject ApiHandleDelete(IEagleAccount account, JObject payload)
+        {
+            //Get arguments
+            string path = ResolveUserPath(account, payload.GetString("path"));
+
+            //Determine if this is a directory or a file
+            if (!File.Exists(path) || !Directory.Exists(path))
+            {
+                //Does not exist
+                throw new Exception("File or directory does not exist.");
+            }
+            else if (File.GetAttributes(path).HasFlag(FileAttributes.Directory))
+            {
+                //As directory
+                DirectoryInfo dir = new DirectoryInfo(path);
+
+                //Ensure this is within the user's directory
+                EnsureUserDirectory(dir, account);
+
+                //Delete
+                dir.Delete(true);
+            } else
+            {
+                //As file
+                FileInfo file = new FileInfo(path);
+
+                //Ensure this is within the user's directory
+                EnsureUserDirectory(file, account);
+
+                //Delete
+                file.Delete();
+            }
+
+            //Return empty response
+            return new JObject();
+        }
+
+        private JObject ApiHandleCreateDirectory(IEagleAccount account, JObject payload)
+        {
+            //Get arguments
+            DirectoryInfo dir = new DirectoryInfo(ResolveUserPath(account, payload.GetString("path")));
+
+            //Ensure this is within the user's directory
+            EnsureUserDirectory(dir, account);
+
+            //If it does not exist, create
+            if (!dir.Exists)
+                dir.Create();
+
+            //Return query
+            return SerializeDirectoryInfo(account, dir);
+        }
+
+        private JObject ApiHandleQueryQuota(IEagleAccount account, JObject payload)
+        {
+            //Get the volume
+            DriveInfo drive = new DriveInfo(GetUserDirectory(account).Root.FullName);
+
+            //Create response
+            JObject response = new JObject();
+            response["capacity"] = drive.TotalSize;
+            response["free"] = drive.AvailableFreeSpace;
             return response;
         }
     }

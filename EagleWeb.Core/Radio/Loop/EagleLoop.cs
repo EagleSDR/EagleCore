@@ -18,20 +18,16 @@ namespace EagleWeb.Core.Radio.Loop
         {
         }
 
-        public IEaglePortProperty<bool> Enabled => portEnabled;
+        protected abstract bool Enabled { get; }
 
-        private IEaglePortProperty<bool> portEnabled;
         private IEaglePortEventDispatcher portOnError;
         private bool stale = true;
+        private bool errored = false;
         private List<IEagleLoopPropertyInternal> properties = new List<IEagleLoopPropertyInternal>();
 
         protected override void ConfigureObject(IEagleObjectConfigureContext context)
         {
             base.ConfigureObject(context);
-
-            //Create an "enabled" port, as it'll be treated a bit specially
-            portEnabled = context.CreatePropertyBool("IsEnabled")
-                .MakeWebEditable();
 
             //Create a port for sending errors
             portOnError = context.CreateEventDispatcher("OnError");
@@ -84,12 +80,14 @@ namespace EagleWeb.Core.Radio.Loop
         /// </summary>
         public bool Process(params object[] args)
         {
-            //Check if we're disabled
-            if (!portEnabled.Value)
-                return false;
-
             //Check if any changes have been made
-            stale = IsUpdated() || stale;
+            bool updated = IsUpdated();
+            stale = updated || stale;
+            errored = errored && !updated;
+
+            //If we are in an errored state or disabled, abort
+            if (!Enabled || errored)
+                return false;
 
             //Enter exception catching...
             try
@@ -147,17 +145,8 @@ namespace EagleWeb.Core.Radio.Loop
             //Send
             portOnError.Push(msg);
 
-            //Go into disabled state
-            EnterDisabledState();
-        }
-
-        /// <summary>
-        /// Disables the loop until the user manually reenables it.
-        /// </summary>
-        private void EnterDisabledState()
-        {
-            if (portEnabled.Value)
-                portEnabled.Value = false;
+            //Disable until a change is made
+            errored = true;
         }
 
         interface IEagleLoopPropertyInternal
@@ -175,6 +164,7 @@ namespace EagleWeb.Core.Radio.Loop
             private T value;
             private T pendingValue;
             private bool isStale;
+            private object valueLock = new object();
 
             public T Value => value;
 
@@ -196,13 +186,26 @@ namespace EagleWeb.Core.Radio.Loop
             {
                 if (isStale)
                 {
-                    value = pendingValue;
-                    isStale = false;
+                    lock (valueLock)
+                    {
+                        value = pendingValue;
+                        isStale = false;
+                    }
                     return true;
                 } else
                 {
                     return false;
                 }
+            }
+
+            /// <summary>
+            /// Locks changes while callback is running.
+            /// </summary>
+            /// <param name="callback"></param>
+            public void Lock(Action<T> callback)
+            {
+                lock (valueLock)
+                    callback(Value);
             }
         }
 

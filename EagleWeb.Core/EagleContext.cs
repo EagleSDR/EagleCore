@@ -119,6 +119,11 @@ namespace EagleWeb.Core
         {
             return FileManager.ResolveFileTokenImpl(token);
         }
+
+        public bool TryResolveWebGuid<T>(string guid, out T obj) where T : IEagleObject
+        {
+            return objectManager.TryResolveWebGuid(guid, out obj);
+        }
     }
 }
 

@@ -2,6 +2,8 @@
 using EagleWeb.Common.Plugin;
 using EagleWeb.Core.Misc;
 using EagleWeb.Package;
+using EagleWeb.Package.Data;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -39,19 +41,31 @@ namespace EagleWeb.Core.Plugins
             ctx.Log(level, "EaglePluginManager", message);
         }
 
-        public bool TryGetAsset(string hash, out Stream s)
+        public bool TryGetAsset(string hash, out EaglePluginAssetInfo info, out Stream s)
         {
-            //Get the filename
+            //Set defaults
+            s = null;
+            info = null;
+
+            //Get the filename and check if it exists
             string filename = pluginDir.CreateSubdirectory("assets").FullName + Path.DirectorySeparatorChar + hash + ".asset";
-            if (File.Exists(filename))
+            if (!File.Exists(filename))
+                return false;
+
+            //Read the plugin info
+            string infoFilename = filename + "info";
+            if (!File.Exists(infoFilename))
             {
-                s = new FileStream(filename, FileMode.Open, FileAccess.Read);
-                return true;
-            } else
-            {
-                s = null;
+                Log(EagleLogLevel.WARN, "Attempted to load asset without asset info! Asset file exists, but the info file does not. This plugin may not have been correctly installed.");
                 return false;
             }
+
+            //Read info
+            info = JsonConvert.DeserializeObject<EaglePluginAssetInfo>(File.ReadAllText(infoFilename));
+
+            //Open file
+            s = new FileStream(filename, FileMode.Open, FileAccess.Read);
+            return true;
         }
 
         public void Init()

@@ -44,7 +44,7 @@ namespace EagleWeb.Core.NetObjects.Ports.Property
             return this;
         }
 
-        public override void OnClientConnect(EagleNetObjectClient target)
+        public override void OnClientConnect(IEagleNetObjectTarget target)
         {
             //Send client the event
             SendUpdateNotification(target);

@@ -1,4 +1,5 @@
-﻿using EagleWeb.Common.Auth;
+﻿using EagleWeb.Common;
+using EagleWeb.Common.Auth;
 using EagleWeb.Common.IO.Sockets;
 using EagleWeb.Core.Auth;
 using EagleWeb.Core.Web.WS;
@@ -21,6 +22,7 @@ namespace EagleWeb.Core.Web.Sockets
 
         IEagleAccount IEagleSocketClient.Account => Account;
         public object Custom { get; set; }
+        public IEagleContext Context => server.Context;
 
         public event IEagleSocketClient_OnReceiveJsonArgs OnReceiveJson;
         public event IEagleSocketClient_OnReceiveArgs OnReceive;

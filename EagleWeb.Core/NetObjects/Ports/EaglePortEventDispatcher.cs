@@ -25,7 +25,7 @@ namespace EagleWeb.Core.NetObjects.Ports
             return this;
         }
 
-        public override void OnClientConnect(EagleNetObjectClient target)
+        public override void OnClientConnect(IEagleNetObjectTarget target)
         {
             
         }

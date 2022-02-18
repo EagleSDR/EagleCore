@@ -20,27 +20,25 @@ namespace EagleWeb.Core.Web.Services
         public async Task HandleRequest(HttpContext e)
         {
             //Decode request
-            IFormCollection form;
+            LoginRequest request;
             try
             {
-                form = await e.Request.ReadFormAsync();
+                request = await e.Request.ReadAsJsonAsync<LoginRequest>();
             } catch
             {
                 e.Response.StatusCode = 400;
                 return;
             }
 
-            //Get parts
-            string username;
-            string password;
-            if (!form.TryGetString("username", out username) || !form.TryGetString("password", out password))
+            //Validate
+            if (request.username == null || request.password == null)
             {
                 e.Response.StatusCode = 400;
                 return;
             }
 
             //Attempt to authenticate account
-            bool success = ctx.Auth.Authenticate(username, password, out EagleAccount account);
+            bool success = ctx.Auth.Authenticate(request.username, request.password, out EagleAccount account);
             string token = success ? ctx.Sessions.CreateSession(account) : null;
 
             //Create response
@@ -50,6 +48,12 @@ namespace EagleWeb.Core.Web.Services
 
             //Send
             await e.Response.WriteJsonAsync(response);
+        }
+
+        class LoginRequest
+        {
+            public string username;
+            public string password;
         }
     }
 }

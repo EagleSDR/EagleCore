@@ -55,18 +55,28 @@ namespace EagleWeb.Core.NetObjects
 
         private void SendCreateMessage(IEagleNetObjectTarget target)
         {
-            //Make
-            JObject msg = new JObject();
-            msg["guid"] = guid;
-            msg["extra"] = constructorInfo;
-            msg["types"] = CreateTypeTree();
-            msg["ports"] = CreatePortsList();
-            
-            //Send
-            target.SendMessage(EagleNetObjectOpcode.OBJECT_CREATE, guid, msg);
+            //Make and send create message
+            {
+                JObject msg = new JObject();
+                msg["guid"] = guid;
+                msg["extra"] = constructorInfo;
+                msg["types"] = CreateTypeTree();
+                msg["ports"] = CreatePortsList();
+                target.SendMessage(EagleNetObjectOpcode.OBJECT_CREATE, guid, msg);
+            }
+
+            //Send info for all ports
+            foreach (var p in ports)
+                p.OnClientConnect(target);
+
+            //Make and send object ready message
+            {
+                JObject msg = new JObject();
+                target.SendMessage(EagleNetObjectOpcode.OBJECT_READY, guid, msg);
+            }
         }
 
-        public void OnClientConnect(EagleNetObjectClient target)
+        public void OnClientConnect(IEagleNetObjectTarget target)
         {
             //Tell client about us
             SendCreateMessage(target);

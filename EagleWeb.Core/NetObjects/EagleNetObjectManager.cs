@@ -89,5 +89,19 @@ namespace EagleWeb.Core.NetObjects
                     c.Send(data, 0, data.Length, true);
             }
         }
+
+        public bool TryResolveWebGuid<T>(string guid, out T obj) where T : IEagleObject
+        {
+            //Search for an object with this GUID
+            if (collection.TryGetItemByGuid(guid, out IEagleNetObjectInternalIO item) && item is EagleNetObjectInstance objContainer && objContainer.Ctx is T o)
+            {
+                obj = o;
+                return true;
+            } else
+            {
+                obj = default(T);
+                return false;
+            }
+        }
     }
 }

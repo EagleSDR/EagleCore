@@ -14,6 +14,7 @@ using EagleWeb.Core.Misc;
 using EagleWeb.Core.Radio.Loop;
 using RaptorDspNet;
 using EagleWeb.Common.Auth;
+using System.Collections.Concurrent;
 
 namespace EagleWeb.Core.Radio
 {
@@ -35,19 +36,23 @@ namespace EagleWeb.Core.Radio
 
         //MISC
         private List<EagleRadioSession> sessions = new List<EagleRadioSession>();
-        private List<EagleRadioSession> uninitializedSessions = new List<EagleRadioSession>();
+        private ConcurrentQueue<EagleRadioSession> uninitializedSessions = new ConcurrentQueue<EagleRadioSession>();
 
         //PIPES
         private EagleRadioPort<EagleComplex> pipeOutput = new EagleRadioPort<EagleComplex>("Output");
 
         //PORTS
+        private IEagleLoopPortProperty<bool> portEnabled;
         private IEaglePortApi portCreateSession;
         private IEagleLoopPortProperty<EagleModuleSource> propSource;
+        private IEaglePortProperty<long> propCenterFreq;
 
+        //EVENTS
         public event IEagleRadio_SessionEventArgs OnSessionCreated;
         public event IEagleRadio_SessionEventArgs OnSessionRemoved;
 
         //GETTERS
+        protected override bool Enabled => portEnabled.Value;
         public IEaglePortProperty<EagleModuleSource> Source => propSource.Port;
         public IEagleRadioPort<EagleComplex> PortInput => pipeOutput;
 
@@ -55,8 +60,12 @@ namespace EagleWeb.Core.Radio
         {
             base.ConfigureObject(context);
 
-            //Set up the loop props
-            Enabled.RequirePermission(EaglePermissions.PERMISSION_POWER);
+            //Create an "enabled" port, as it'll be treated a bit specially
+            portEnabled = CreateLoopProperty(
+                context.CreatePropertyBool("IsEnabled")
+                .RequirePermission(EaglePermissions.PERMISSION_POWER)
+                .MakeWebEditable()
+            ); 
 
             //Create ports
             portCreateSession = context.CreatePortApi("CreateSession")
@@ -67,7 +76,40 @@ namespace EagleWeb.Core.Radio
                 context.CreatePropertyObject<EagleModuleSource>("Source")
                 .MakeWebEditable()
                 .RequirePermission(EaglePermissions.PERMISSION_CHANGE_SOURCE)
+                .BindOnChanged(OnSourceChanged)
             );
+            propCenterFreq = context.CreatePropertyLong("CenterFrequency")
+                .MakeWebEditable()
+                .RequirePermission(EaglePermissions.PERMISSION_TUNE)
+                .BindOnChanged(OnCenterFreqChanged);
+        }
+
+        private void OnSourceChanged(IEaglePortPropertySetArgs<EagleModuleSource> args)
+        {
+            if (args.Value != null)
+            {
+                //Attempt to update the center frequency of this to that of the current center frequency
+                try
+                {
+                    //Set
+                    args.Value.CenterFrequency = propCenterFreq.Value;
+                }
+                catch
+                {
+                    //Failed. Instead, set the center frequency port's value to this.
+                    propCenterFreq.Value = args.Value.CenterFrequency;
+                }
+            }
+        }
+
+        private void OnCenterFreqChanged(IEaglePortPropertySetArgs<long> args)
+        {
+            //Attempt to update on the source, if there's one set
+            propSource.Lock((EagleModuleSource source) =>
+            {
+                if (source != null)
+                    source.CenterFrequency = args.Value;
+            });
         }
 
         private JObject ApiCreateSession(IEagleAccount client, JObject message)
@@ -75,12 +117,11 @@ namespace EagleWeb.Core.Radio
             //Create the session
             EagleRadioSession session = new EagleRadioSession(this);
 
-            //Add
-            lock (uninitializedSessions)
-                uninitializedSessions.Add(session);
+            //Queue session for initialization
+            uninitializedSessions.Enqueue(session);
 
-            //Set as stale so it gets set up
-            MakeStale();
+            //Send event
+            OnSessionCreated?.Invoke(this, session);
 
             //Create response
             JObject msg = new JObject();
@@ -106,7 +147,8 @@ namespace EagleWeb.Core.Radio
 
         protected override unsafe void ProcessInternal(params object[] args)
         {
-            //Check if any sessions stale
+            //Add/remove nessessary sessions
+            AdmitSessions();
             PruneSessions();
 
             //Read from radio
@@ -116,7 +158,7 @@ namespace EagleWeb.Core.Radio
             if (count == 0)
             {
                 Log(EagleLogLevel.INFO, "Stopping radio: Source returned no samples, assuming end of stream...");
-                Enabled.Value = false;
+                portEnabled.Port.Value = false;
                 return;
             }
 
@@ -128,6 +170,19 @@ namespace EagleWeb.Core.Radio
                 s.Process(bufferIq, count);
         }
 
+        private void AdmitSessions()
+        {
+            //Dequeue sessions
+            while (uninitializedSessions.TryDequeue(out EagleRadioSession session))
+            {
+                //Configure
+                session.Configure(pipeOutput.SampleRate);
+
+                //Move to the main queue
+                sessions.Add(session);
+            }
+        }
+
         private void PruneSessions()
         {
             //Check if any are stale
@@ -135,6 +190,7 @@ namespace EagleWeb.Core.Radio
             {
                 if (sessions[i].IsExpired())
                 {
+                    OnSessionRemoved?.Invoke(this, sessions[i]);
                     sessions[i].Dispose();
                     sessions.RemoveAt(i);
                     i--;

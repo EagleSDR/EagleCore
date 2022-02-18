@@ -5,6 +5,7 @@ using EagleWeb.Common.NetObjects.IO;
 using EagleWeb.Common.Radio;
 using EagleWeb.Common.Radio.Modules;
 using EagleWeb.Core.Misc;
+using EagleWeb.Core.Radio.Components;
 using EagleWeb.Core.Radio.Loop;
 using Newtonsoft.Json.Linq;
 using RaptorDspNet;
@@ -30,10 +31,13 @@ namespace EagleWeb.Core.Radio
             bufferIq = new RaptorBuffer<raptor_complex>(EagleRadio.BUFFER_SIZE);
             bufferAudioL = new RaptorBuffer<float>(EagleRadio.BUFFER_SIZE);
             bufferAudioR = new RaptorBuffer<float>(EagleRadio.BUFFER_SIZE);
+            bufferAudioResampledL = new RaptorBuffer<float>(EagleRadio.BUFFER_SIZE);
+            bufferAudioResampledR = new RaptorBuffer<float>(EagleRadio.BUFFER_SIZE);
 
             //Create components
             rotator = RaptorActivator.MakeRaptorRotator();
             filterIf = RaptorActivator.MakeRaptorFilter<raptor_complex, raptor_complex, float>();
+            audioResampler = new EagleMultichannelResampler(2, 1, 1, true);
         }
 
         protected override void ConfigureObject(IEagleObjectConfigureContext context)
@@ -67,19 +71,26 @@ namespace EagleWeb.Core.Radio
             );
         }
 
+        const int OUTPUT_AUDIO_RATE = 48000;
+
         //MISC
         private EagleRadio radio;
         private volatile bool userRequestedRemoval = false;
         private float inputSampleRate;
+        private double audioResamplingRate;
+        private bool demodulationEnabled;
 
         //NATIVE COMPONENTS
         private IRaptorRotator rotator;
-        private IRaptorFilter<raptor_complex, raptor_complex, float> filterIf;  
+        private IRaptorFilter<raptor_complex, raptor_complex, float> filterIf;
+        private EagleMultichannelResampler audioResampler;
 
         //BUFFERS
         private RaptorBuffer<raptor_complex> bufferIq;
         private RaptorBuffer<float> bufferAudioL;
         private RaptorBuffer<float> bufferAudioR;
+        private RaptorBuffer<float> bufferAudioResampledL;
+        private RaptorBuffer<float> bufferAudioResampledR;
 
         //PORTS
         private IEaglePortApi portDelete;
@@ -90,9 +101,10 @@ namespace EagleWeb.Core.Radio
         //PIPES
         private EagleRadioPort<EagleComplex> portVfo = new EagleRadioPort<EagleComplex>("VFO");
         private EagleRadioPort<EagleComplex> portIf = new EagleRadioPort<EagleComplex>("IF");
-        private EagleRadioPort<EagleStereoPair> portAudio = new EagleRadioPort<EagleStereoPair>("Audio");
+        private EagleRadioPort<EagleStereoPair> portAudio = new EagleRadioPort<EagleStereoPair>("Audio", OUTPUT_AUDIO_RATE);
 
         //GETTERS
+        protected override bool Enabled => true;
         public IEagleRadioPort<EagleComplex> PortVFO => portVfo;
         public IEagleRadioPort<EagleComplex> PortIF => portIf;
         public IEagleRadioPort<EagleStereoPair> PortAudio => portAudio;
@@ -125,13 +137,9 @@ namespace EagleWeb.Core.Radio
 
         protected unsafe override void ConfigureInternal()
         {
-            //Make sure we have all parts
-            if (propDemodulator.Value == null)
-                throw new Exception("No demodulator was set.");
-
             //Validate settings
-            if (propBandwidth.Value >= inputSampleRate || propBandwidth.Value <= 0)
-                throw new Exception($"Bandwidth {propBandwidth.Value} is invalid.");
+            /*if (propBandwidth.Value >= inputSampleRate || propBandwidth.Value <= 0)
+                throw new Exception($"Bandwidth {propBandwidth.Value} is invalid.");*/
 
             //Configure pipe
             portVfo.SampleRate = inputSampleRate;
@@ -140,28 +148,37 @@ namespace EagleWeb.Core.Radio
             rotator.SetSampleRate(inputSampleRate);
             rotator.SetFreqOffset(propFrequencyOffset.Value);
 
-            //Configure IF filter
-            float decimatedSampleRate;
-            using (IRaptorFilterBuilderLowpass builder = RaptorActivator.MakeRaptorFilterBuilderLowpass(inputSampleRate, propBandwidth.Value * 0.5f))
+            //Configure IF and demodulator only if they are set
+            demodulationEnabled = propBandwidth.Value > 0 && propDemodulator.Value != null;
+            if (demodulationEnabled)
             {
-                builder.AutomaticTapCount(propBandwidth.Value * 0.1f, 60);
-                using (var taps = builder.BuildTapsReal())
-                    filterIf.Configure(taps, builder.CalculateDecimation(&decimatedSampleRate));
+                //Configure IF filter
+                float decimatedSampleRate;
+                using (IRaptorFilterBuilderLowpass builder = RaptorActivator.MakeRaptorFilterBuilderLowpass(inputSampleRate, propBandwidth.Value * 0.5f))
+                {
+                    builder.AutomaticTapCount(propBandwidth.Value * 0.1f, 60);
+                    filterIf.Configure(builder, builder.CalculateDecimation(&decimatedSampleRate));
+                }
+                portIf.SampleRate = decimatedSampleRate;
+
+                //Configure demodulator
+                float audioSampleRate = propDemodulator.Value.Configure(decimatedSampleRate);
+
+                //Recalculate the resampling factor
+                audioResamplingRate = EagleResampler.CalculateFactor(audioSampleRate, OUTPUT_AUDIO_RATE);
+                audioResampler.Reconfigure(audioResamplingRate, audioResamplingRate, true);
+
+                //Log
+                Log(EagleLogLevel.DEBUG, $"Reconfigured session: {inputSampleRate} -> [bw={propBandwidth.Value}] -> {decimatedSampleRate} -> [demod={propDemodulator.Value.GetType().FullName}] -> {audioSampleRate} -> [factor={audioResamplingRate}] -> {OUTPUT_AUDIO_RATE}");
             }
-
-            //Configure demodulator and pipes
-            portIf.SampleRate = decimatedSampleRate;
-            float audioSampleRate = propDemodulator.Value.Configure(decimatedSampleRate);
-            portAudio.SampleRate = audioSampleRate;
-
-            //Log
-            Log(EagleLogLevel.DEBUG, $"Reconfigured session: {inputSampleRate} -> [bw={propBandwidth.Value}] -> {decimatedSampleRate} -> [demod={propDemodulator.Value.GetType().FullName}] -> {audioSampleRate}");
         }
 
         protected override void ProcessInternal(params object[] args)
         {
             ProcessMain((RaptorBuffer<raptor_complex>)args[0], (int)args[1]);
         }
+
+        private static System.IO.FileStream test = new System.IO.FileStream("C:\\Users\\Roman\\Desktop\\test.bin", System.IO.FileMode.Create);
 
         private unsafe void ProcessMain(RaptorBuffer<raptor_complex> inBuffer, int count)
         {
@@ -171,23 +188,72 @@ namespace EagleWeb.Core.Radio
             //Send out
             portVfo.Output((EagleComplex*)bufferIq.Pointer, count);
 
-            //Filter
-            count = filterIf.Process(bufferIq, bufferIq, count);
+            //Demodulate if we can
+            if (demodulationEnabled)
+            {
+                //Filter
+                count = filterIf.Process(bufferIq, bufferIq, count);
 
-            //Send out
-            portIf.Output((EagleComplex*)bufferIq.Pointer, count);
+                //Send out
+                portIf.Output((EagleComplex*)bufferIq.Pointer, count);
+
+                //Demodulate
+                count = propDemodulator.Value.Process((EagleComplex*)bufferIq.Pointer, count, bufferAudioL, bufferAudioR);
+
+                //Resample to standard and send out
+                audioResampler.Process(audioResamplingRate, new float*[] { bufferAudioL, bufferAudioR }, count, new float*[] { bufferAudioResampledL, bufferAudioResampledR }, EagleRadio.BUFFER_SIZE, false, (int outCount) =>
+                {
+                    //Deinterlace audio buffer
+                    EagleStereoPair* buffer = MergeAudioBuffers(outCount);
+
+                    //Send out
+                    portAudio.Output(buffer, outCount);
+
+                    //Test
+                    for (int i = 0; i < outCount; i++)
+                    {
+                        test.Write(BitConverter.GetBytes(buffer[i].left), 0, 4);
+                        test.Write(BitConverter.GetBytes(buffer[i].right), 0, 4);
+                    }
+                });
+            }
+        }
+
+        private unsafe EagleStereoPair* MergeAudioBuffers(int count)
+        {
+            //Borrow the IQ buffer and use it as a float buffer
+            float* output = (float*)bufferIq.Pointer;
+
+            //Get buffers
+            float* l = bufferAudioResampledL.Pointer;
+            float* r = bufferAudioResampledR.Pointer;
+
+            //Deinterlace
+            int outIndex = 0;
+            for (int i = 0; i < count; i++)
+            {
+                output[outIndex++] = l[i];
+                output[outIndex++] = r[i];
+            }
+
+            return (EagleStereoPair*)output;
         }
 
         public override void Dispose()
         {
             base.Dispose();
 
-            //Clean up
-            rotator.Dispose();
-            filterIf.Dispose();
+            //Free native buffers
             bufferIq.Dispose();
             bufferAudioL.Dispose();
             bufferAudioR.Dispose();
+            bufferAudioResampledL.Dispose();
+            bufferAudioResampledR.Dispose();
+
+            //Free native components
+            rotator.Dispose();
+            filterIf.Dispose();
+            audioResampler.Dispose();
         }
     }
 }

@@ -11,7 +11,7 @@ namespace EagleWeb.Core.NetObjects
     interface IEagleNetObjectInternalIO
     {
         string Guid { get; }
-        void OnClientConnect(EagleNetObjectClient client);
+        void OnClientConnect(IEagleNetObjectTarget client);
         void OnClientMessage(EagleNetObjectClient client, EagleNetObjectOpcode opcode, JObject message);
     }
 }
