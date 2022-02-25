@@ -1,5 +1,6 @@
 ﻿using EagleWeb.Common;
 using EagleWeb.Common.NetObjects;
+using EagleWeb.Common.NetObjects.Interfaces;
 using EagleWeb.Common.NetObjects.IO;
 using EagleWeb.Core.NetObjects.Ports;
 using EagleWeb.Core.NetObjects.Ports.Property;
@@ -17,6 +18,16 @@ namespace EagleWeb.Core.NetObjects
         }
 
         private EagleNetObjectInstance ctx;
+
+        public void RequireKeepAlivePings(IEagleObjectPingExpiredHandler handler = null)
+        {
+            ctx.RequirePings(handler);
+        }
+
+        public void AllowWebDeletion()
+        {
+            ctx.WebDeletionAllowed = true;
+        }
 
         public IEaglePortApi CreatePortApi(string name)
         {

@@ -1,4 +1,5 @@
-﻿using EagleWeb.Common.NetObjects.IO;
+﻿using EagleWeb.Common.NetObjects.Interfaces;
+using EagleWeb.Common.NetObjects.IO;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -10,6 +11,17 @@ namespace EagleWeb.Common.NetObjects
     /// </summary>
     public interface IEagleObjectConfigureContext
     {
+        /// <summary>
+        /// When called, makes it so the client must continously ping the object to keep it alive. This'll allow the object to be disposed if nobody is using it. Pings are handled for you.
+        /// </summary>
+        /// <param name="handler">An optional handler that'll allow you to override the operation.</param>
+        void RequireKeepAlivePings(IEagleObjectPingExpiredHandler handler = null);
+
+        /// <summary>
+        /// When calls, allows web clients to remotely delete and dispose this object at will.
+        /// </summary>
+        void AllowWebDeletion();
+
         /// <summary>
         /// Creates a new API port. An API port allows web clients to make requests to the server.
         /// </summary>
@@ -64,6 +76,6 @@ namespace EagleWeb.Common.NetObjects
         /// </summary>
         /// <param name="name"></param>
         /// <returns></returns>
-        IEaglePortProperty<T> CreatePropertyObject<T>(string name) where T : EagleObject;
+        IEaglePortProperty<T> CreatePropertyObject<T>(string name) where T : IEagleObject;
     }
 }
