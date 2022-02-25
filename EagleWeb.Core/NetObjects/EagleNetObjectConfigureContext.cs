@@ -67,7 +67,7 @@ namespace EagleWeb.Core.NetObjects
             return port;
         }
 
-        public IEaglePortProperty<T> CreatePropertyObject<T>(string name) where T : EagleObject
+        public IEaglePortProperty<T> CreatePropertyObject<T>(string name) where T : IEagleObject
         {
             EaglePortPropertyObject<T> port = new EaglePortPropertyObject<T>(ctx, name);
             ctx.Ports.Add(port);

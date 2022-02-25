@@ -8,7 +8,7 @@ using System.Text;
 
 namespace EagleWeb.Core.NetObjects.Ports.Property
 {
-    class EaglePortPropertyObject<T> : EaglePortProperty<T> where T : EagleObject
+    class EaglePortPropertyObject<T> : EaglePortProperty<T> where T : IEagleObject
     {
         public EaglePortPropertyObject(EagleNetObjectInstance ctx, string name) : base(ctx, name)
         {
@@ -21,7 +21,7 @@ namespace EagleWeb.Core.NetObjects.Ports.Property
         {
             //If it's null, then return null
             if (data.Type == JTokenType.Null)
-                return null;
+                return default(T);
 
             //If it's a string, look up that GUID in the collection
             if (data.Type == JTokenType.String)
@@ -38,13 +38,13 @@ namespace EagleWeb.Core.NetObjects.Ports.Property
                     throw new Exception("The GUID specified is not an EagleObject.");
 
                 //Extract the object
-                EagleObject obj = (item as EagleNetObjectInstance).Ctx;
+                IEagleObject obj = (item as EagleNetObjectInstance).Ctx;
 
                 //Make sure it's of the valid type
-                if (!obj.GetType().IsSubclassOf(typeof(T)))
-                    throw new Exception($"The object must be a subclass of \"{typeof(T).Name}\", but this object is \"{obj.GetType().Name}\".");
+                if (obj is T result)
+                    return result;
 
-                return obj as T;
+                throw new Exception($"The object must be a subclass (or implement) of \"{typeof(T).Name}\", but this object is \"{obj.GetType().Name}\".");
             }
 
             //Invalid format

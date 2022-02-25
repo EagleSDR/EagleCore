@@ -31,7 +31,7 @@ namespace EagleWeb.Core.NetObjects
         public string LoggableId => $"{Ctx.GetType().FullName} @ {Guid}";
         public List<EagleNetObjectPort> Ports => ports;
         public EagleNetObjectManager Manager => (EagleNetObjectManager)ctx.ObjectManager;
-        public EagleObject Ctx => ctx;
+        public IEagleObject Ctx => ctx;
 
         private JArray CreateTypeTree()
         {
