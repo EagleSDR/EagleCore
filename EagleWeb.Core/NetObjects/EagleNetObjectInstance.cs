@@ -76,6 +76,13 @@ namespace EagleWeb.Core.NetObjects
             }
         }
 
+        private void SendDestroyMessage(IEagleNetObjectTarget target)
+        {
+            //Make and send destroy message
+            JObject msg = new JObject();
+            target.SendMessage(EagleNetObjectOpcode.OBJECT_DESTROY, guid, msg);
+        }
+
         public void OnClientConnect(IEagleNetObjectTarget target)
         {
             //Tell client about us
@@ -110,7 +117,7 @@ namespace EagleWeb.Core.NetObjects
             Manager.Collection.DeactivateGuid(this);
 
             //Notify all clients of it's destruction
-            SendCreateMessage(Manager);
+            SendDestroyMessage(Manager);
         }
 
         public void Log(EagleLogLevel level, string topic, string message)
