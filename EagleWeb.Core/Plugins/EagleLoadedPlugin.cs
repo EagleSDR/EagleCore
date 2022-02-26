@@ -2,6 +2,9 @@
 using EagleWeb.Common.IO.Sockets;
 using EagleWeb.Common.NetObjects;
 using EagleWeb.Common.Plugin;
+using EagleWeb.Common.Plugin.Interfaces.Radio;
+using EagleWeb.Common.Plugin.Interfaces.RadioSession;
+using EagleWeb.Common.Radio;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -11,52 +14,29 @@ using System.Text;
 
 namespace EagleWeb.Core.Plugins
 {
-    class EagleLoadedPlugin : IEagleObjectPluginContext
+    class EagleLoadedPlugin : IEaglePluginContext
     {
         public EagleLoadedPlugin(EaglePluginInfo info, EaglePluginManager manager)
         {
             this.info = info;
             this.manager = manager;
-            loader = new AssemblyLoadContext(PluginId);
         }
 
         private readonly EaglePluginInfo info;
         private readonly EaglePluginManager manager;
-        private readonly AssemblyLoadContext loader;
-        private readonly Dictionary<string, EagleObjectPlugin> modules = new Dictionary<string, EagleObjectPlugin>();
+        private readonly Dictionary<string, IEagleObject> staticObjects = new Dictionary<string, IEagleObject>();
         private readonly Dictionary<string, IEagleSocketServer> sockets = new Dictionary<string, IEagleSocketServer>();
+
+        public event IEaglePluginContext_OnInitEventArgs OnInit;
 
         public EaglePluginInfo Info => info;
         public string PluginId => GeneratePluginId(info);
-        public EagleContext Context => manager.Ctx;
-        public IEagleObjectManager ObjectManager => manager.Ctx.ObjectManager;
-        public Dictionary<string, EagleObjectPlugin> Modules => modules;
-        public Dictionary<string, IEagleSocketServer> Sockets => sockets;
-        IEagleContext IEagleObjectPluginContext.Context => Context;
-
-        private void Log(EagleLogLevel level, string message)
-        {
-            manager.Ctx.Log(level, "EagleLoadedPlugin-" + PluginId, message);
-        }
-
-        public Assembly GetAssembly(string dll)
-        {
-            Log(EagleLogLevel.DEBUG, $"Loading assembly \"{dll}\"...");
-            string path = manager.PluginInstallPath.FullName + Path.DirectorySeparatorChar + dll;
-            return loader.LoadFromAssemblyPath(path);
-        }
-
-        public void RegisterModule(string name, EagleObjectPlugin component)
-        {
-            modules.Add(name, component);
-        }
+        public IEagleContext Context => manager.Ctx;
+        public Dictionary<string, IEagleObject> StaticObjects => staticObjects;
 
         public void Init()
         {
-            foreach (var c in modules)
-            {
-                c.Value.PluginInit();
-            }
+            OnInit?.Invoke();
         }
 
         private static string GeneratePluginId(EaglePluginInfo info)
@@ -66,19 +46,54 @@ namespace EagleWeb.Core.Plugins
 
         /* API */
 
+        public T CreateObject<T>(Func<IEagleObjectContext, T> creator) where T : IEagleObject
+        {
+            return manager.Ctx.CreateObject(creator);
+        }
+
+        public T CreateStaticObject<T>(string key, Func<IEagleObjectContext, T> creator) where T : IEagleObject
+        {
+            //Ensure this doesn't already exist
+            if (staticObjects.ContainsKey(key))
+                throw new Exception($"Attempted to add static object \"{key}\" when that key was already in use! Keys must be unique to the plugin.");
+
+            //Create as normal
+            T obj = CreateObject(creator);
+
+            //Add to the list of static items
+            staticObjects.Add(key, obj);
+
+            return obj;
+        }
+
         public IEagleSocketServer RegisterSocketServer(string friendlyName, IEagleSocketHandler handler)
         {
             //Wrap the friendly name
             friendlyName = PluginId + "." + friendlyName;
 
             //Run normally
-            IEagleSocketServer server = Context.RegisterSocketServer(friendlyName, handler);
+            IEagleSocketServer server = manager.Ctx.RegisterSocketServer(friendlyName, handler);
 
             //Add
             lock (sockets)
                 sockets.Add(friendlyName, server);
 
             return server;
+        }
+
+        public void RegisterModuleRadio(string id, Func<IEagleRadio, IEagleRadioModule> module)
+        {
+            manager.Ctx.RadioModules.RegisterApplication(PluginId + "." + id, module);
+        }
+
+        public void RegisterModuleRadioSession(string id, Func<IEagleRadioSession, IEagleRadioSessionModule> module)
+        {
+            manager.Ctx.RadioSessionModules.RegisterApplication(PluginId + "." + id, module);
+        }
+
+        public void Log(EagleLogLevel level, string topic, string message)
+        {
+            manager.Ctx.Log(level, "EagleLoadedPlugin-" + PluginId, message);
         }
     }
 }

@@ -10,6 +10,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Runtime.Loader;
 using System.Text;
 
 namespace EagleWeb.Core.Plugins
@@ -67,34 +68,43 @@ namespace EagleWeb.Core.Plugins
             s = new FileStream(filename, FileMode.Open, FileAccess.Read);
             return true;
         }
-
-        public void Init()
+        
+        public void CreateAll()
         {
             //Construct each plugin
             Log(EagleLogLevel.INFO, $"Loading plugins...");
             foreach (var p in db.Data)
-                InitPlugin(p);
+                ConstructPlugin(p);
+        }
 
+        public void InitAll()
+        {
             //Initialize all
             Log(EagleLogLevel.INFO, $"Initializing plugins...");
             foreach (var p in loaded)
                 p.Init();
-
-            //Log
-            Log(EagleLogLevel.INFO, $"Successfully loaded and initialized {db.Data.Count} plugins!");
         }
 
-        private void InitPlugin(EaglePluginInfo p)
+        private void ConstructPlugin(EaglePluginInfo p)
         {
             //Create the context for it
-            EagleLoadedPlugin plugin = new EagleLoadedPlugin(p, this);
+            EagleInternalLoadedPlugin plugin = new EagleInternalLoadedPlugin(p, this);
             loaded.Add(plugin);
 
             //Go through each module
             foreach (var m in p.modules)
             {
                 //First, load the assembly
-                Assembly asm = plugin.GetAssembly(m.dll);
+                Assembly asm;
+                Log(EagleLogLevel.DEBUG, $"Loading managed library \"{m.dll}\" for {p.developer_name}.{p.plugin_name}...");
+                try
+                {
+                    asm = plugin.LoadAssembly(PluginInstallPath.FullName + Path.DirectorySeparatorChar + m.dll);
+                } catch (Exception ex)
+                {
+                    Log(EagleLogLevel.ERROR, $"Failed to load {p.developer_name}.{p.plugin_name}: Managed library \"{m.dll}\" could not be loaded: {ex.Message}{ex.StackTrace}");
+                    continue;
+                }
 
                 //Get the class
                 Type type;
@@ -110,7 +120,7 @@ namespace EagleWeb.Core.Plugins
                 }
 
                 //Construct
-                Log(EagleLogLevel.DEBUG, $"Constructing class \"{m.classname}\" from plugin {p.developer_name}.{p.plugin_name}");
+                Log(EagleLogLevel.DEBUG, $"Constructing class \"{m.classname}\" from plugin {p.developer_name}.{p.plugin_name}...");
                 object item;
                 try
                 {
@@ -122,15 +132,29 @@ namespace EagleWeb.Core.Plugins
                     continue;
                 }
 
-                //Sanity check
-                if (!(item is EagleObjectPlugin))
-                {
-                    Log(EagleLogLevel.ERROR, $"Failed to load {p.developer_name}.{p.plugin_name}: \"{m.classname}\" must be of type {typeof(EagleObjectPlugin).Name}, but it is instead {item.GetType().Name}.");
-                    continue;
-                }
-
                 //Add
-                plugin.RegisterModule(m.classname, item as EagleObjectPlugin);
+                plugin.AddLoadedModule(item);
+            }
+        }
+
+        class EagleInternalLoadedPlugin : EagleLoadedPlugin
+        {
+            public EagleInternalLoadedPlugin(EaglePluginInfo info, EaglePluginManager manager) : base(info, manager)
+            {
+                loader = new AssemblyLoadContext(PluginId);
+            }
+
+            private readonly AssemblyLoadContext loader;
+            private readonly List<object> loadedModules = new List<object>();
+
+            public Assembly LoadAssembly(string fullname)
+            {
+                return loader.LoadFromAssemblyPath(fullname);
+            }
+
+            public void AddLoadedModule(object module)
+            {
+                loadedModules.Add(module);
             }
         }
     }
