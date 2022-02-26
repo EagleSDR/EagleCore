@@ -32,7 +32,7 @@ namespace EagleWeb.Core.NetObjects.Ports
 
         public void Push(JObject message)
         {
-            InternalSend(Manager, message);
+            InternalSend(TargetAll, message);
         }
 
         protected override void CreateExtra(JObject extra)

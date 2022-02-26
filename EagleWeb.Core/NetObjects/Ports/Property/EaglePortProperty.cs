@@ -162,7 +162,7 @@ namespace EagleWeb.Core.NetObjects.Ports.Property
             this.value = args.Value;
 
             //Send web event to all
-            SendUpdateNotification(Manager);
+            SendUpdateNotification(TargetAll);
         }
 
         public IEaglePortProperty<T> RequirePermission(string permission)

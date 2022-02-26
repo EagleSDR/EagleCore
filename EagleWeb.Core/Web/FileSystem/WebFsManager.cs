@@ -15,23 +15,11 @@ namespace EagleWeb.Core.Web.FileSystem
 {
     class WebFsManager : EagleObject
     {
-        public WebFsManager(EagleContext ctx, DirectoryInfo root) : base(ctx)
+        public WebFsManager(IEagleObjectContext context, EagleContext ctx, DirectoryInfo root) : base(context)
         {
             this.root = root;
-        }
 
-        private readonly DirectoryInfo root;
-        private Dictionary<string, WebFsFileStreamImpl> streams = new Dictionary<string, WebFsFileStreamImpl>();
-
-        private IEaglePortApi portFileOpen;
-        private IEaglePortApi portDirInfo;
-        private IEaglePortApi portDirCreate;
-        private IEaglePortApi portDelete;
-        private IEaglePortApi portQueryQuota;
-
-        protected override void ConfigureObject(IEagleObjectConfigureContext context)
-        {
-            base.ConfigureObject(context);
+            //Configure
             portFileOpen = context.CreatePortApi("OpenFile")
                 .Bind(ApiHandleFileOpen);
             portDirInfo = context.CreatePortApi("QueryDirectory")
@@ -43,6 +31,15 @@ namespace EagleWeb.Core.Web.FileSystem
             portQueryQuota = context.CreatePortApi("QueryQuota")
                .Bind(ApiHandleQueryQuota);
         }
+
+        private readonly DirectoryInfo root;
+        private Dictionary<string, WebFsFileStreamImpl> streams = new Dictionary<string, WebFsFileStreamImpl>();
+
+        private IEaglePortApi portFileOpen;
+        private IEaglePortApi portDirInfo;
+        private IEaglePortApi portDirCreate;
+        private IEaglePortApi portDelete;
+        private IEaglePortApi portQueryQuota;
 
         public string UserOpenFile(IEagleAccount account, string path, bool writing)
         {

@@ -1,8 +1,10 @@
 ﻿using EagleWeb.Common;
+using EagleWeb.Common.Auth;
 using EagleWeb.Common.IO;
 using EagleWeb.Common.NetObjects;
 using EagleWeb.Core.Auth;
 using EagleWeb.Core.NetObjects.Enums;
+using EagleWeb.Core.NetObjects.Misc;
 using EagleWeb.Core.Web.WS;
 using Microsoft.AspNetCore.Http;
 using Newtonsoft.Json;
@@ -13,7 +15,7 @@ using System.Text;
 
 namespace EagleWeb.Core.NetObjects
 {
-    class EagleNetObjectManager : EagleWsConnectionService2, IEagleObjectManager, IEagleNetObjectTarget
+    class EagleNetObjectManager : EagleWsConnectionService2
     {
         public EagleNetObjectManager(EagleContext ctx) : base(ctx)
         {
@@ -25,6 +27,31 @@ namespace EagleWeb.Core.NetObjects
         private EagleGuidObjectCollection collection = new EagleGuidObjectCollection();
         private List<EagleNetObjectClient> clients = new List<EagleNetObjectClient>();
         private EagleObject control;
+
+        public T CreateObject<T>(Func<IEagleObjectContext, T> creator) where T : IEagleObject
+        {
+            return CreateObject(creator, new FilteredTarget(this));
+        }
+
+        public T CreateObject<T>(Func<IEagleObjectContext, T> creator, IEagleFilteredTarget target) where T : IEagleObject
+        {
+            //Reserve a unique GUID
+            string guid = collection.ReserveGuid();
+
+            //Create an instance using that ID
+            EagleNetObjectInstance instance = new EagleNetObjectInstance(guid, this, target);
+
+            //Call the creator code to obtain the user methods
+            T user = creator(instance);
+
+            //Activate registration
+            collection.ActivateGuid(instance);
+
+            //Apply
+            instance.Finalize(user);
+
+            return user;
+        }
 
         public void SetControlObject(EagleObject control)
         {
@@ -41,19 +68,6 @@ namespace EagleWeb.Core.NetObjects
         {
             lock (clients)
                 clients.Remove(client);
-        }
-
-        public IEagleObjectInternalContext CreateObject(EagleObject ctx, JObject constructorInfo)
-        {
-            //Generate a unique GUID
-            string guid = collection.ReserveGuid();
-
-            //If the constructor info is null, create a filler value
-            if (constructorInfo == null)
-                constructorInfo = new JObject();
-
-            //Create instance
-            return new EagleNetObjectInstance(guid, ctx, constructorInfo);
         }
 
         protected override bool CreateConnection(HttpContext e, EagleAccount account, out EagleBaseConnection connection)
@@ -77,23 +91,10 @@ namespace EagleWeb.Core.NetObjects
             return Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(msg));
         }
 
-        public void SendMessage(EagleNetObjectOpcode opcode, string guid, JObject payload)
-        {
-            //Encode
-            byte[] data = EncodeMessage(opcode, guid, payload);
-
-            //Send to all
-            lock(clients)
-            {
-                foreach (var c in clients)
-                    c.Send(data, 0, data.Length, true);
-            }
-        }
-
         public bool TryResolveWebGuid<T>(string guid, out T obj) where T : IEagleObject
         {
             //Search for an object with this GUID
-            if (collection.TryGetItemByGuid(guid, out IEagleNetObjectInternalIO item) && item is EagleNetObjectInstance objContainer && objContainer.Ctx is T o)
+            if (collection.TryGetItemByGuid(guid, out IEagleNetObjectInternalIO item) && item is EagleNetObjectInstance objContainer && objContainer.User is T o)
             {
                 obj = o;
                 return true;
@@ -101,6 +102,62 @@ namespace EagleWeb.Core.NetObjects
             {
                 obj = default(T);
                 return false;
+            }
+        }
+
+        class FilteredTarget : IEagleFilteredTarget
+        {
+            public FilteredTarget(EagleNetObjectManager manager)
+            {
+                this.manager = manager;
+            }
+
+            private readonly EagleNetObjectManager manager;
+            private readonly List<string> accounts = new List<string>();
+
+            public void AddAccountFilter(IEagleAccount account)
+            {
+                accounts.Add(account.Username);
+            }
+
+            public void SendMessage(EagleNetObjectOpcode opcode, string guid, JObject payload)
+            {
+                //Search for clients
+                List<EagleNetObjectClient> clients = new List<EagleNetObjectClient>();
+                lock (manager.clients)
+                {
+                    if (accounts.Count == 0)
+                    {
+                        //Add all
+                        clients.AddRange(manager.clients);
+                    } else
+                    {
+                        //Apply filter
+                        foreach (var c in manager.clients)
+                        {
+                            if (accounts.Contains(c.Account.Username))
+                                clients.Add(c);
+                        }
+                    }
+                }
+
+                //Encode
+                byte[] data = EncodeMessage(opcode, guid, payload);
+
+                //Dispatch to all
+                foreach (var c in clients)
+                    c.Send(data, 0, data.Length, true);
+            }
+
+            public IEagleFilteredTarget Clone()
+            {
+                //Make
+                FilteredTarget target = new FilteredTarget(manager);
+
+                //Copy over accounts
+                target.accounts.AddRange(accounts);
+
+                return target;
             }
         }
     }

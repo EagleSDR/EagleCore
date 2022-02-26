@@ -28,6 +28,7 @@ namespace EagleWeb.Core.NetObjects
         private readonly List<string> requiredPermissions = new List<string>();
 
         public EagleNetObjectInstance Ctx => ctx;
+        public IEagleNetObjectTarget TargetAll => ctx.TargetAll;
         public EagleNetObjectManager Manager => ctx.Manager;
         public string Guid => guid;
         public string Name => name;

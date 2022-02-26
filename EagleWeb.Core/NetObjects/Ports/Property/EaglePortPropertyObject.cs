@@ -38,7 +38,7 @@ namespace EagleWeb.Core.NetObjects.Ports.Property
                     throw new Exception("The GUID specified is not an EagleObject.");
 
                 //Extract the object
-                IEagleObject obj = (item as EagleNetObjectInstance).Ctx;
+                IEagleObject obj = (item as EagleNetObjectInstance).User;
 
                 //Make sure it's of the valid type
                 if (obj is T result)

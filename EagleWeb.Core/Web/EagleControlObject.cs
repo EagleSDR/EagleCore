@@ -10,21 +10,18 @@ namespace EagleWeb.Core.Web
 {
     internal class EagleControlObject : EagleObject
     {
-        public EagleControlObject(EagleContext ctx) : base(ctx, null)
+        public EagleControlObject(IEagleObjectContext context, EagleContext ctx) : base(context)
         {
             this.ctx = ctx;
-        }
 
-        private EagleContext ctx;
-
-        protected override void ConfigureObject(IEagleObjectConfigureContext context)
-        {
-            base.ConfigureObject(context);
+            //Configure
             context.CreatePortApi("GetComponents")
                 .Bind(GetComponentsHandler);
             context.CreatePortApi("GetPluginModules")
                 .Bind(GetPluginModulesHandler);
         }
+
+        private EagleContext ctx;
 
         private JObject GetComponentsHandler(IEagleAccount account, JObject request)
         {
@@ -40,9 +37,9 @@ namespace EagleWeb.Core.Web
             JObject plugins = new JObject();
             foreach (var p in ctx.PluginManager.LoadedPlugins)
             {
-                //Enumerate modules
+                //Enumerate static modules
                 JObject modules = new JObject();
-                foreach (var m in p.Modules)
+                foreach (var m in p.StaticObjects)
                     modules.Add(m.Key, m.Value.Guid);
 
                 //Add
