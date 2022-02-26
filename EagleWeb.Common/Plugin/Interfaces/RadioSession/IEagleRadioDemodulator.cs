@@ -1,26 +1,21 @@
-﻿using EagleWeb.Common.NetObjects;
-using Newtonsoft.Json.Linq;
+﻿using EagleWeb.Common.Radio;
 using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace EagleWeb.Common.Radio.Modules
+namespace EagleWeb.Common.Plugin.Interfaces.RadioSession
 {
-    /// <summary>
-    /// Represents a demodulator instance.
-    /// </summary>
-    public abstract class EagleModuleDemodulator : EagleObject
+    public interface IEagleRadioDemodulator : IEagleObject, IEagleRadioSessionModule
     {
-        protected EagleModuleDemodulator(IEagleObjectManagerLink link, JObject info = null) : base(link, info)
-        {
-        }
+        string DisplayName { get; }
+        string DisplayNameShort { get; }
 
         /// <summary>
         /// Configures this demodulator and returns the output sample rate.
         /// </summary>
         /// <param name="sampleRate"></param>
         /// <returns></returns>
-        public abstract float Configure(float sampleRate);
+        float Configure(float sampleRate, int bufferSize);
 
         /// <summary>
         /// Processes the incoming IQ into audio.
@@ -30,6 +25,6 @@ namespace EagleWeb.Common.Radio.Modules
         /// <param name="audioL">Output L buffer.</param>
         /// <param name="audioR">Output R buffer.</param>
         /// <returns>Count of output per channel.</returns>
-        public abstract unsafe int Process(EagleComplex* input, int count, float* audioL, float* audioR);
+        unsafe int Process(EagleComplex* input, int count, float* audioL, float* audioR);
     }
 }

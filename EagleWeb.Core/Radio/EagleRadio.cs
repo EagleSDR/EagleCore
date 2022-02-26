@@ -9,86 +9,94 @@ using System.Threading;
 using EagleWeb.Common.Radio.RDS;
 using EagleWeb.Common.NetObjects;
 using EagleWeb.Common.NetObjects.IO;
-using EagleWeb.Common.Radio.Modules;
 using EagleWeb.Core.Misc;
-using EagleWeb.Core.Radio.Loop;
 using RaptorDspNet;
 using EagleWeb.Common.Auth;
 using System.Collections.Concurrent;
+using EagleWeb.Core.Misc.Module;
+using EagleWeb.Core.Radio.Native;
+using EagleWeb.Common.Plugin.Interfaces.Radio;
 
 namespace EagleWeb.Core.Radio
 {
-    class EagleRadio : EagleLoopThread, IEagleRadio
+    class EagleRadio : EagleObject, IEagleRadio
     {
-        public EagleRadio(EagleContext ctx) : base(ctx)
+        public EagleRadio(IEagleObjectContext context, EagleContext ctx) : base(context)
         {
-            //Create buffers
-            bufferIq = new RaptorBuffer<raptor_complex>(BUFFER_SIZE);
+            //Set
+            this.context = ctx;
 
-            //Start worker
-            StartWorkerThread("Main Radio Worker");
-        }
+            //Create modules and add them as an extra
+            modules = ctx.RadioModules.CreateInstance(this);
+            context.AddExtra("modules", modules.CreateEagleObjectMap());
 
-        public const int BUFFER_SIZE = 65536;
-
-        //BUFFERS
-        private RaptorBuffer<raptor_complex> bufferIq;
-
-        //MISC
-        private List<EagleRadioSession> sessions = new List<EagleRadioSession>();
-        private ConcurrentQueue<EagleRadioSession> uninitializedSessions = new ConcurrentQueue<EagleRadioSession>();
-
-        //PIPES
-        private EagleRadioPort<EagleComplex> pipeOutput = new EagleRadioPort<EagleComplex>("Output");
-
-        //PORTS
-        private IEagleLoopPortProperty<bool> portEnabled;
-        private IEaglePortApi portCreateSession;
-        private IEagleLoopPortProperty<EagleModuleSource> propSource;
-        private IEaglePortProperty<long> propCenterFreq;
-
-        //EVENTS
-        public event IEagleRadio_SessionEventArgs OnSessionCreated;
-        public event IEagleRadio_SessionEventArgs OnSessionRemoved;
-
-        //GETTERS
-        protected override bool Enabled => portEnabled.Value;
-        public IEaglePortProperty<EagleModuleSource> Source => propSource.Port;
-        public IEagleRadioPort<EagleComplex> PortInput => pipeOutput;
-
-        protected override void ConfigureObject(IEagleObjectConfigureContext context)
-        {
-            base.ConfigureObject(context);
-
-            //Create an "enabled" port, as it'll be treated a bit specially
-            portEnabled = CreateLoopProperty(
-                context.CreatePropertyBool("IsEnabled")
-                .RequirePermission(EaglePermissions.PERMISSION_POWER)
-                .MakeWebEditable()
-            ); 
+            //Create error
+            portOnError = context.CreateEventDispatcher("OnError");
 
             //Create ports
             portCreateSession = context.CreatePortApi("CreateSession")
                 .Bind(ApiCreateSession);
 
             //Create props
-            propSource = CreateLoopProperty(
-                context.CreatePropertyObject<EagleModuleSource>("Source")
+            portEnabled = context.CreatePropertyBool("IsEnabled")
+                .RequirePermission(EaglePermissions.PERMISSION_POWER)
+                .MakeWebEditable()
+                .BindOnChanged(OnEnabledChanged);
+            propSource = context.CreatePropertyObject<IEagleRadioSource>("Source")
                 .MakeWebEditable()
                 .RequirePermission(EaglePermissions.PERMISSION_CHANGE_SOURCE)
-                .BindOnChanged(OnSourceChanged)
-            );
+                .BindOnChanged(OnSourceChanged);
             propCenterFreq = context.CreatePropertyLong("CenterFrequency")
                 .MakeWebEditable()
                 .RequirePermission(EaglePermissions.PERMISSION_TUNE)
                 .BindOnChanged(OnCenterFreqChanged);
+
+            //Create radio
+            radio = new EagleNativeRadio(BUFFER_SIZE);
+            radio.StartWorker();
+            radio.OnError += Radio_OnError;
         }
 
-        private void OnSourceChanged(IEaglePortPropertySetArgs<EagleModuleSource> args)
+        public const int BUFFER_SIZE = 65536;
+
+        private EagleContext context;
+        private EagleNativeRadio radio;
+
+        private IEagleModuleInstance<EagleRadio, IEagleRadioModule> modules;
+
+        private IEaglePortEventDispatcher portOnError;
+        private IEaglePortProperty<bool> portEnabled;
+        private IEaglePortApi portCreateSession;
+        private IEaglePortProperty<IEagleRadioSource> propSource;
+        private IEaglePortProperty<long> propCenterFreq;
+
+        private IEagleRadioSource source;
+
+        public event IEagleRadio_SessionEventArgs OnSessionCreated;
+        public event IEagleRadio_SessionEventArgs OnSessionRemoved;
+
+        public EagleContext Context => context;
+        public EagleNativeRadio Radio => radio;
+
+        private void OnEnabledChanged(IEaglePortPropertySetArgs<bool> args)
         {
+            if (args.Value)
+                radio.Unsuspend();
+            else
+                radio.Suspend();
+        }
+
+        private void OnSourceChanged(IEaglePortPropertySetArgs<IEagleRadioSource> args)
+        {
+            //Set on the radio
+            radio.SetSource(args.Value);
+
+            //Set
+            source = args.Value;
+
+            //Attempt to update the center frequency of this to that of the current center frequency
             if (args.Value != null)
             {
-                //Attempt to update the center frequency of this to that of the current center frequency
                 try
                 {
                     //Set
@@ -104,21 +112,21 @@ namespace EagleWeb.Core.Radio
 
         private void OnCenterFreqChanged(IEaglePortPropertySetArgs<long> args)
         {
-            //Attempt to update on the source, if there's one set
-            propSource.Lock((EagleModuleSource source) =>
-            {
-                if (source != null)
-                    source.CenterFrequency = args.Value;
-            });
+            //Read the source
+            IEagleRadioSource source = this.source;
+
+            //Set
+            if (source != null)
+                source.CenterFrequency = args.Value;
         }
 
         private JObject ApiCreateSession(IEagleAccount client, JObject message)
         {
             //Create the session
-            EagleRadioSession session = new EagleRadioSession(this);
-
-            //Queue session for initialization
-            uninitializedSessions.Enqueue(session);
+            EagleRadioSession session = CreateChildObject((IEagleObjectContext context) =>
+            {
+                return new EagleRadioSession(context, this, radio.CreateSession());
+            });
 
             //Send event
             OnSessionCreated?.Invoke(this, session);
@@ -129,73 +137,17 @@ namespace EagleWeb.Core.Radio
             return msg;
         }
 
-        protected override void ConfigureInternal()
+        private void Radio_OnError(EagleNativeRadio radio, string message)
         {
-            //Make sure the source is ready, then query it
-            if (propSource.Value == null)
-                throw new Exception("No source is set.");
-            if (!propSource.Value.IsReady)
-                throw new Exception("Source is not yet ready.");
-            pipeOutput.SampleRate = propSource.Value.SampleRate;
-            if (pipeOutput.SampleRate <= 0)
-                throw new Exception("Source is producing an invalid sample rate: " + pipeOutput.SampleRate);
+            //Update "running"
+            portEnabled.Value = false;
 
-            //Set up sessions
-            foreach (var s in sessions)
-                s.Configure(pipeOutput.SampleRate);
-        }
+            //Create the message to dispatch
+            JObject msg = new JObject();
+            msg["message"] = message;
 
-        protected override unsafe void ProcessInternal(params object[] args)
-        {
-            //Add/remove nessessary sessions
-            AdmitSessions();
-            PruneSessions();
-
-            //Read from radio
-            int count = propSource.Value.Read((EagleComplex*)bufferIq.Pointer, BUFFER_SIZE);
-
-            //If we read no samples, assume this is the end of stream
-            if (count == 0)
-            {
-                Log(EagleLogLevel.INFO, "Stopping radio: Source returned no samples, assuming end of stream...");
-                portEnabled.Port.Value = false;
-                return;
-            }
-
-            //Send out
-            pipeOutput.Output((EagleComplex*)bufferIq.Pointer, count);
-
-            //Dispatch
-            foreach (var s in sessions)
-                s.Process(bufferIq, count);
-        }
-
-        private void AdmitSessions()
-        {
-            //Dequeue sessions
-            while (uninitializedSessions.TryDequeue(out EagleRadioSession session))
-            {
-                //Configure
-                session.Configure(pipeOutput.SampleRate);
-
-                //Move to the main queue
-                sessions.Add(session);
-            }
-        }
-
-        private void PruneSessions()
-        {
-            //Check if any are stale
-            for (int i = 0; i < sessions.Count; i++)
-            {
-                if (sessions[i].IsExpired())
-                {
-                    OnSessionRemoved?.Invoke(this, sessions[i]);
-                    sessions[i].Dispose();
-                    sessions.RemoveAt(i);
-                    i--;
-                }
-            }
+            //Send
+            portOnError.Push(msg);
         }
     }
 }
