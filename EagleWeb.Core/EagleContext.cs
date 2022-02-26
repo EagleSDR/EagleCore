@@ -19,10 +19,13 @@ using System.IO;
 using System.Net.WebSockets;
 using System.Text;
 using System.Threading;
+using EagleWeb.Core.Misc.Module;
+using EagleWeb.Common.Plugin.Interfaces.Radio;
+using EagleWeb.Common.Plugin.Interfaces.RadioSession;
 
 namespace EagleWeb.Core
 {
-    class EagleContext : IEagleContext, IEagleLogger, IEagleObjectManagerLink
+    class EagleContext : IEagleContext, IEagleLogger
     {
         public EagleContext(string workingPathname)
         {
@@ -35,14 +38,10 @@ namespace EagleWeb.Core
             sessions = new EagleSessionManager(auth, workingPathname + "sessions.json");
             objectManager = new EagleNetObjectManager(this);
             sockManager = new EagleSocketManager(this);
-
-            //Make others
             pluginManager = new EaglePluginManager(this, new DirectoryInfo(workingPathname).CreateSubdirectory("plugins"));
-            fileManager = new WebFsManager(this, new DirectoryInfo(workingPathname).CreateSubdirectory("home"));
-            radio = new EagleRadio(this);
 
             //Set the control component for web clients
-            objectManager.SetControlObject(new EagleControlObject(this));
+            objectManager.SetControlObject(CreateObject((IEagleObjectContext context) => new EagleControlObject(context, this)));
 
             //Set up HTTP server
             http = new EagleWebServer(this, 45555);
@@ -63,12 +62,13 @@ namespace EagleWeb.Core
         private readonly EagleWebServer http;
         private readonly EagleNetObjectManager objectManager;
         private readonly EagleSocketManager sockManager;
-
         private readonly EaglePluginManager pluginManager;
-        private readonly WebFsManager fileManager;
-        private readonly EagleRadio radio;
 
-        private readonly List<EagleLoadedPlugin> plugins = new List<EagleLoadedPlugin>();
+        private WebFsManager fileManager;
+        private EagleRadio radio;
+
+        private readonly EagleModuleStore<EagleRadio, IEagleRadioModule> modulesRadio = new EagleModuleStore<EagleRadio, IEagleRadioModule>();
+        private readonly EagleModuleStore<EagleRadioSession, IEagleRadioSessionModule> modulesRadioSession = new EagleModuleStore<EagleRadioSession, IEagleRadioSessionModule>();
 
         public int BufferSize => EagleRadio.BUFFER_SIZE;
         public DirectoryInfo Root => new DirectoryInfo(workingPathname);
@@ -78,12 +78,21 @@ namespace EagleWeb.Core
         public EaglePluginManager PluginManager => pluginManager;
         public WebFsManager FileManager => fileManager;
         public IEagleRadio Radio => radio;
-        public IEagleObjectManager ObjectManager => objectManager;
+
+        public EagleModuleStore<EagleRadio, IEagleRadioModule> RadioModules => modulesRadio;
+        public EagleModuleStore<EagleRadioSession, IEagleRadioSessionModule> RadioSessionModules => modulesRadioSession;
 
         public void Init()
         {
+            //Construct all plugins
+            pluginManager.CreateAll();
+
+            //Make others
+            fileManager = CreateObject((IEagleObjectContext context) => new WebFsManager(context, this, new DirectoryInfo(workingPathname).CreateSubdirectory("home")));
+            radio = CreateObject((IEagleObjectContext context) => new EagleRadio(context, this));
+
             //Initialize all plugins
-            pluginManager.Init();
+            pluginManager.InitAll();
         }
 
         public void Run()
@@ -109,6 +118,11 @@ namespace EagleWeb.Core
         }
 
         /* API */
+
+        public T CreateObject<T>(Func<IEagleObjectContext, T> creator) where T : IEagleObject
+        {
+            return objectManager.CreateObject(creator);
+        }
 
         public IEagleSocketServer RegisterSocketServer(string friendlyName, IEagleSocketHandler handler)
         {

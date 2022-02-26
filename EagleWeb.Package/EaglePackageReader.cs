@@ -1,4 +1,5 @@
-﻿using EagleWeb.Package.Manifest;
+﻿using EagleWeb.Package.Data;
+using EagleWeb.Package.Manifest;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -140,6 +141,18 @@ namespace EagleWeb.Package
 
                 //Move
                 File.Move(tempFilename, outputFilename);
+
+                //Create info
+                string info = JsonConvert.SerializeObject(new EaglePluginAssetInfo
+                {
+                    original_name = e.Name
+                });
+
+                //Write file info
+                string outputInfoFilename = outputFilename + "info";
+                if (File.Exists(outputInfoFilename))
+                    File.Delete(outputInfoFilename);
+                File.WriteAllText(outputInfoFilename, info);
 
                 //Register
                 hashes.Add(name, hash);

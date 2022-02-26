@@ -10,6 +10,11 @@ namespace EagleWeb.Common.IO.Sockets
     public interface IEagleSocketServer
     {
         /// <summary>
+        /// The global EagleContext.
+        /// </summary>
+        IEagleContext Context { get; }
+
+        /// <summary>
         /// The GUID of the server.
         /// </summary>
         string Id { get; }

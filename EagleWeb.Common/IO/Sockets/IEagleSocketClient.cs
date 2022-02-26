@@ -16,6 +16,11 @@ namespace EagleWeb.Common.IO.Sockets
     public interface IEagleSocketClient
     {
         /// <summary>
+        /// The global EagleContext.
+        /// </summary>
+        IEagleContext Context { get; }
+
+        /// <summary>
         /// The logged-in account.
         /// </summary>
         IEagleAccount Account { get; }
