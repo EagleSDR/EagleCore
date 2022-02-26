@@ -9,36 +9,27 @@ namespace EagleWeb.Common
     /// <summary>
     /// An object replicated both on the server and on clients
     /// </summary>
-    public class EagleObject : IEagleObject, IEagleObjectManagerLink, IDisposable
+    public class EagleObject : IEagleObject
     {
-        public EagleObject(IEagleObjectManagerLink link, JObject info = null)
+        public EagleObject(IEagleObjectContext context)
         {
-            //Get the manager
-            manager = link.ObjectManager;
-
-            //Request a context
-            ctx = manager.CreateObject(this, info);
-
-            //Get the creation context, configure, and apply
-            IEagleObjectConfigureContext configure = ctx.BeginCreate();
-            ConfigureObject(configure);
-            ctx.EndCreate(configure);
+            this.context = context;
+            context.OnDestroyed += Destroy;
         }
 
-        private readonly IEagleObjectManager manager;
-        private readonly IEagleObjectInternalContext ctx;
+        private readonly IEagleObjectContext context;
 
-        public IEagleObjectManager ObjectManager => manager;
-        public string Guid => ctx.Guid;
+        public string Guid => context.Guid;
+        public IEagleContext SystemContext => context.Context;
 
-        protected virtual void ConfigureObject(IEagleObjectConfigureContext context)
+        public T CreateChildObject<T>(Func<IEagleObjectContext, T> creator) where T : IEagleObject
         {
-            //Users will implement this themselves...
+            return context.CreateChildObject(creator);
         }
 
         public void Log(EagleLogLevel level, string topic, string message)
         {
-            ctx.Log(level, topic, message);
+            context.Log(level, topic, message);
         }
 
         protected void Log(EagleLogLevel level, string message)
@@ -46,9 +37,9 @@ namespace EagleWeb.Common
             Log(level, null, message);
         }
 
-        public virtual void Dispose()
+        public virtual void Destroy()
         {
-            ctx.Destroy();
+            context.Destroy();
         }
     }
 }

@@ -5,9 +5,10 @@ using System.Text;
 
 namespace EagleWeb.Common
 {
-    public interface IEagleObject
+    public interface IEagleObject : IEagleDestructable
     {
-        IEagleObjectManager ObjectManager { get; }
         string Guid { get; }
+        T CreateChildObject<T>(Func<IEagleObjectContext, T> creator) where T : IEagleObject;
+        void Log(EagleLogLevel level, string topic, string message);
     }
 }
