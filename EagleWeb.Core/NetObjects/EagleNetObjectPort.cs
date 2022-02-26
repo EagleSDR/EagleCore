@@ -20,6 +20,7 @@ namespace EagleWeb.Core.NetObjects
             this.name = name;
             guid = Manager.Collection.ReserveGuid();
             Manager.Collection.ActivateGuid(this);
+            ctx.OnDestroyed += HostDestroyed;
         }
 
         private readonly EagleNetObjectInstance ctx;
@@ -87,6 +88,12 @@ namespace EagleWeb.Core.NetObjects
         protected void InternalRequirePermission(string permission)
         {
             requiredPermissions.Add(permission);
+        }
+
+        private void HostDestroyed()
+        {
+            //Deactivate the GUID to stop sending events
+            Manager.Collection.DeactivateGuid(this);
         }
     }
 }
