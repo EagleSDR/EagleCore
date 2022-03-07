@@ -213,6 +213,12 @@ namespace EagleWeb.Core.NetObjects
             //Validate
             EnsureNotInitialized();
 
+            //Add usual
+            AddExtraPost(key, value);
+        }
+
+        public void AddExtraPost(string key, JObject value)
+        {
             //Make sure it doesn't already exist
             if (extras.ContainsKey(key))
                 throw new Exception("The specified extra key already exists in the data!");

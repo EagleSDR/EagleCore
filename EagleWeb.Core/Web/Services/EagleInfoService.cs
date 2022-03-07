@@ -20,16 +20,24 @@ namespace EagleWeb.Core.Web.Services
 
         private EagleContext ctx;
 
-        private JObject CreateResponsePlugin(EagleLoadedPlugin plugin)
+        private JObject CreateResponsePluginAssets(EaglePluginContext plugin)
+        {
+            JObject response = new JObject();
+            foreach (var a in plugin.Package.Assets)
+                response.Add(a.FileName, a.Hash);
+            return response;
+        }
+
+        private JObject CreateResponsePlugin(EaglePluginContext plugin)
         {
             JObject response = new JObject();
             response["id"] = plugin.PluginId;
-            response["plugin_name"] = plugin.Info.plugin_name;
-            response["developer_name"] = plugin.Info.developer_name;
-            response["version_major"] = plugin.Info.version_major;
-            response["version_minor"] = plugin.Info.version_minor;
-            response["version_build"] = plugin.Info.version_build;
-            response["assets"] = JToken.FromObject(plugin.Info.assets);
+            response["plugin_name"] = plugin.Package.PluginName;
+            response["developer_name"] = plugin.Package.DeveloperName;
+            response["version_major"] = plugin.Package.PluginVersion.Major;
+            response["version_minor"] = plugin.Package.PluginVersion.Minor;
+            response["version_build"] = plugin.Package.PluginVersion.Build;
+            response["assets"] = CreateResponsePluginAssets(plugin);
             return response;
         }
 

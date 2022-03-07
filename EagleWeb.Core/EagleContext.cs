@@ -25,6 +25,8 @@ using EagleWeb.Common.Plugin.Interfaces.RadioSession;
 
 namespace EagleWeb.Core
 {
+    public delegate void EagleContext_OnPluginsLoadedEventArgs();
+
     class EagleContext : IEagleContext, IEagleLogger
     {
         public EagleContext(string workingPathname)
@@ -39,6 +41,10 @@ namespace EagleWeb.Core
             objectManager = new EagleNetObjectManager(this);
             sockManager = new EagleSocketManager(this);
             pluginManager = new EaglePluginManager(this, new DirectoryInfo(workingPathname).CreateSubdirectory("plugins"));
+
+            //Make others
+            fileManager = CreateObject((IEagleObjectContext context) => new WebFsManager(context, this, new DirectoryInfo(workingPathname).CreateSubdirectory("home")));
+            radio = CreateObject((IEagleObjectContext context) => new EagleRadio(context, this));
 
             //Set the control component for web clients
             objectManager.SetControlObject(CreateObject((IEagleObjectContext context) => new EagleControlObject(context, this)));
@@ -79,20 +85,18 @@ namespace EagleWeb.Core
         public WebFsManager FileManager => fileManager;
         public IEagleRadio Radio => radio;
 
+        public event EagleContext_OnPluginsLoadedEventArgs OnPluginsLoaded;
+
         public EagleModuleStore<EagleRadio, IEagleRadioModule> RadioModules => modulesRadio;
         public EagleModuleStore<EagleRadioSession, IEagleRadioSessionModule> RadioSessionModules => modulesRadioSession;
 
         public void Init()
         {
             //Construct all plugins
-            pluginManager.CreateAll();
+            pluginManager.LoadPlugins();
 
-            //Make others
-            fileManager = CreateObject((IEagleObjectContext context) => new WebFsManager(context, this, new DirectoryInfo(workingPathname).CreateSubdirectory("home")));
-            radio = CreateObject((IEagleObjectContext context) => new EagleRadio(context, this));
-
-            //Initialize all plugins
-            pluginManager.InitAll();
+            //Fire events
+            OnPluginsLoaded?.Invoke();
         }
 
         public void Run()

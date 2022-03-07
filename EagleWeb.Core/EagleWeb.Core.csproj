@@ -35,7 +35,6 @@
     <ProjectReference Include="..\..\RaptorDspNet\RaptorDspNet\RaptorDspNet.csproj" />
     <ProjectReference Include="..\..\VolkDotNet\VolkDotNet\VolkDotNet.csproj" />
     <ProjectReference Include="..\EagleWeb.Common\EagleWeb.Common.csproj" />
-    <ProjectReference Include="..\EagleWeb.Package\EagleWeb.Package.csproj" />
   </ItemGroup>
 
 </Project>

@@ -5,6 +5,7 @@ using EagleWeb.Common.Plugin;
 using EagleWeb.Common.Plugin.Interfaces.Radio;
 using EagleWeb.Common.Plugin.Interfaces.RadioSession;
 using EagleWeb.Common.Radio;
+using EagleWeb.Core.Plugins.Package;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -14,24 +15,24 @@ using System.Text;
 
 namespace EagleWeb.Core.Plugins
 {
-    class EagleLoadedPlugin : IEaglePluginContext
+    class EaglePluginContext : IEaglePluginContext
     {
-        public EagleLoadedPlugin(EaglePluginInfo info, EaglePluginManager manager)
+        public EaglePluginContext(EaglePluginPackage package, EagleContext context)
         {
-            this.info = info;
-            this.manager = manager;
+            this.package = package;
+            this.context = context;
         }
 
-        private readonly EaglePluginInfo info;
-        private readonly EaglePluginManager manager;
+        private readonly EaglePluginPackage package;
+        private readonly EagleContext context;
         private readonly Dictionary<string, IEagleObject> staticObjects = new Dictionary<string, IEagleObject>();
         private readonly Dictionary<string, IEagleSocketServer> sockets = new Dictionary<string, IEagleSocketServer>();
 
         public event IEaglePluginContext_OnInitEventArgs OnInit;
 
-        public EaglePluginInfo Info => info;
-        public string PluginId => GeneratePluginId(info);
-        public IEagleContext Context => manager.Ctx;
+        public EaglePluginPackage Package => package;
+        public string PluginId => GeneratePluginId(package);
+        public IEagleContext Context => context;
         public Dictionary<string, IEagleObject> StaticObjects => staticObjects;
 
         public void Init()
@@ -39,16 +40,16 @@ namespace EagleWeb.Core.Plugins
             OnInit?.Invoke();
         }
 
-        private static string GeneratePluginId(EaglePluginInfo info)
+        private static string GeneratePluginId(EaglePluginPackage package)
         {
-            return info.developer_name + "." + info.plugin_name;
+            return package.DeveloperName + "." + package.PluginName;
         }
 
         /* API */
 
         public T CreateObject<T>(Func<IEagleObjectContext, T> creator) where T : IEagleObject
         {
-            return manager.Ctx.CreateObject(creator);
+            return context.CreateObject(creator);
         }
 
         public T CreateStaticObject<T>(string key, Func<IEagleObjectContext, T> creator) where T : IEagleObject
@@ -72,7 +73,7 @@ namespace EagleWeb.Core.Plugins
             friendlyName = PluginId + "." + friendlyName;
 
             //Run normally
-            IEagleSocketServer server = manager.Ctx.RegisterSocketServer(friendlyName, handler);
+            IEagleSocketServer server = context.RegisterSocketServer(friendlyName, handler);
 
             //Add
             lock (sockets)
@@ -83,17 +84,17 @@ namespace EagleWeb.Core.Plugins
 
         public void RegisterModuleRadio(string id, Func<IEagleRadio, IEagleRadioModule> module)
         {
-            manager.Ctx.RadioModules.RegisterApplication(PluginId + "." + id, module);
+            context.RadioModules.RegisterApplication(PluginId + "." + id, module);
         }
 
         public void RegisterModuleRadioSession(string id, Func<IEagleRadioSession, IEagleRadioSessionModule> module)
         {
-            manager.Ctx.RadioSessionModules.RegisterApplication(PluginId + "." + id, module);
+            context.RadioSessionModules.RegisterApplication(PluginId + "." + id, module);
         }
 
         public void Log(EagleLogLevel level, string topic, string message)
         {
-            manager.Ctx.Log(level, "EagleLoadedPlugin-" + PluginId, message);
+            context.Log(level, "EagleLoadedPlugin-" + PluginId, message);
         }
     }
 }

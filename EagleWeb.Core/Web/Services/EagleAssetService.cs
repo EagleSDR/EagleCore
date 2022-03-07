@@ -1,5 +1,5 @@
 ﻿using EagleWeb.Core.Plugins;
-using EagleWeb.Package.Data;
+using EagleWeb.Core.Plugins.Package;
 using Microsoft.AspNetCore.Http;
 using System;
 using System.Collections.Generic;
@@ -21,12 +21,12 @@ namespace EagleWeb.Core.Web.Services
         public async Task HandleRequest(HttpContext e)
         {
             //Get the requested hash
-            if (!e.Request.Query.ContainsKey("hash"))
+            string hash;
+            if (!e.Request.Query.TryGetString("hash", out hash))
             {
                 e.Response.StatusCode = 400;
                 return;
             }
-            string hash = e.Request.Query["hash"];
 
             //Validate that this is a valid hash
             if (!ValidateHash(hash))
@@ -36,32 +36,35 @@ namespace EagleWeb.Core.Web.Services
             }
 
             //Attempt to get it
-            Stream src;
-            EaglePluginAssetInfo info;
-            if (!manager.TryGetAsset(hash, out info, out src))
+            IEaglePluginPackageAsset asset;
+            if (!manager.TryGetAsset(hash, out asset))
             {
                 e.Response.StatusCode = 404;
                 return;
             }
 
-            //Get the extension from the original filename
-            string extension = "";
-            if (info.original_name.Contains('.'))
-                extension = info.original_name.Substring(info.original_name.IndexOf('.'));
-
             //Lookup MIME type
             string mime;
-            if (!MIME_TYPE_MAPPINGS.TryGetValue(extension, out mime))
+            if (!MIME_TYPE_MAPPINGS.TryGetValue(GetFileExtension(asset.FileName), out mime))
                 mime = "application/octet-stream";
 
             //Copy
-            e.Response.StatusCode = 200;
-            e.Response.ContentLength = src.Length;
-            e.Response.ContentType = mime;
-            await src.CopyToAsync(e.Response.Body);
+            using (Stream src = asset.Open())
+            {
+                e.Response.StatusCode = 200;
+                e.Response.ContentLength = src.Length;
+                e.Response.ContentType = mime;
+                await src.CopyToAsync(e.Response.Body);
+            }
+        }
 
-            //Close
-            src.Close();
+        private string GetFileExtension(string name)
+        {
+            int index = name.LastIndexOf('.');
+            if (index == -1)
+                return "";
+            else
+                return name.Substring(index);
         }
 
         private bool ValidateHash(string hash)

@@ -1,8 +1,8 @@
 ﻿using EagleWeb.Common;
 using EagleWeb.Common.Plugin;
 using EagleWeb.Core.Misc;
-using EagleWeb.Package;
-using EagleWeb.Package.Data;
+using EagleWeb.Core.Plugins.Loader;
+using EagleWeb.Core.Plugins.Package;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -23,166 +23,201 @@ namespace EagleWeb.Core.Plugins
             this.ctx = ctx;
             this.pluginDir = pluginDir;
 
-            //Load database
-            db = new DataFile<List<EaglePluginInfo>>(DbPathname, new List<EaglePluginInfo>());
+            //Create and activate cache
+            cache = new EagleUnmanagedCache(ctx, pluginDir.CreateSubdirectory("cache"));
+            cache.Activate();
         }
 
-        private EagleContext ctx;
-        private DataFile<List<EaglePluginInfo>> db;
-        private List<EagleLoadedPlugin> loaded = new List<EagleLoadedPlugin>();
-        private DirectoryInfo pluginDir;
+        private readonly EagleContext ctx;
+        private readonly DirectoryInfo pluginDir;
+        private readonly EagleUnmanagedCache cache;
+        private readonly List<IEaglePluginPackageAsset> assets = new List<IEaglePluginPackageAsset>();
+        private readonly List<EaglePluginContext> plugins = new List<EaglePluginContext>();
 
-        public EagleContext Ctx => ctx;
-        public DirectoryInfo PluginInstallPath => new DirectoryInfo(AppDomain.CurrentDomain.BaseDirectory); //wish this could be somewhere else...
-        private string DbPathname => ctx.Root.FullName + Path.DirectorySeparatorChar + "plugins.json";
-        public List<EagleLoadedPlugin> LoadedPlugins => loaded;
+        public List<EaglePluginContext> LoadedPlugins => plugins;
+        public int PluginsCount => plugins.Count;
+
+        public void LoadPlugins()
+        {
+            //Find, load, and unpack all packages
+            List<EagleInternalLoadedPlugin> newPlugins = ScanPlugins();
+            plugins.AddRange(newPlugins);
+
+            //Clean the cache since all required files have been extracted
+            cache.Clean();
+
+            //Add all assets
+            foreach (var p in newPlugins)
+                assets.AddRange(p.Package.Assets);
+
+            //Load all modules
+            foreach (var p in newPlugins)
+                p.LoadModules();
+
+            //Create all modules
+            foreach (var p in newPlugins)
+                p.InitializeModules();
+
+            //Send out init events
+            foreach (var p in newPlugins)
+                p.Init();
+
+            //Count up successfully loaded plugins
+            int loadedOk = 0;
+            foreach (var p in newPlugins)
+                loadedOk += p.LoadedSuccessfully ? 1 : 0;
+
+            //Log
+            Log(EagleLogLevel.INFO, $"Finished loading plugins. {loadedOk} of {newPlugins.Count} plugins were successfully loaded.");
+            if (plugins.Count == 0)
+                Log(EagleLogLevel.WARN, "No plugins are loaded. This application will be essentially useless until plugins are installed!");
+        }
+
+        private List<EagleInternalLoadedPlugin> ScanPlugins()
+        {
+            //Get plugin list
+            FileInfo[] pluginFiles = pluginDir.GetFiles("*.egk");
+
+            //Load each
+            List<EagleInternalLoadedPlugin> newPlugins = new List<EagleInternalLoadedPlugin>();
+            foreach (var p in pluginFiles)
+                newPlugins.Add(new EagleInternalLoadedPlugin(p.FullName, this));
+
+            return newPlugins;
+        }
+
+        public bool TryGetAsset(string hash, out IEaglePluginPackageAsset asset)
+        {
+            //Search
+            foreach (var a in assets)
+            {
+                if (a.Hash == hash)
+                {
+                    asset = a;
+                    return true;
+                }
+            }
+
+            //Failed
+            asset = null;
+            return false;
+        }
 
         private void Log(EagleLogLevel level, string message)
         {
             ctx.Log(level, "EaglePluginManager", message);
         }
 
-        public bool TryGetAsset(string hash, out EaglePluginAssetInfo info, out Stream s)
+        class EagleInternalLoadedPlugin : EaglePluginContext
         {
-            //Set defaults
-            s = null;
-            info = null;
-
-            //Get the filename and check if it exists
-            string filename = pluginDir.CreateSubdirectory("assets").FullName + Path.DirectorySeparatorChar + hash + ".asset";
-            if (!File.Exists(filename))
-                return false;
-
-            //Read the plugin info
-            string infoFilename = filename + "info";
-            if (!File.Exists(infoFilename))
+            public EagleInternalLoadedPlugin(string packageFilename, EaglePluginManager manager) : base(new EaglePluginPackage(packageFilename), manager.ctx)
             {
-                Log(EagleLogLevel.WARN, "Attempted to load asset without asset info! Asset file exists, but the info file does not. This plugin may not have been correctly installed.");
-                return false;
+                //Set
+                this.manager = manager;
+
+                //Create the loader context that'll handle loading
+                loader = new EaglePluginPackageLoader(PluginId, manager.cache);
+
+                //Load the package in. This'll automatically unpack unmanaged files
+                loader.AddPackage(Package);
+
+                //Create modules (but don't load em)
+                modules = new EagleInternalLoadedPluginModule[Package.Modules.Length];
+                for (int i = 0; i < modules.Length; i++)
+                    modules[i] = new EagleInternalLoadedPluginModule(this, Package.Modules[i]);
             }
 
-            //Read info
-            info = JsonConvert.DeserializeObject<EaglePluginAssetInfo>(File.ReadAllText(infoFilename));
+            private readonly EaglePluginManager manager;
+            private readonly EaglePluginPackageLoader loader;
+            private readonly EagleInternalLoadedPluginModule[] modules;
 
-            //Open file
-            s = new FileStream(filename, FileMode.Open, FileAccess.Read);
-            return true;
-        }
-        
-        public void CreateAll()
-        {
-            //Construct each plugin
-            Log(EagleLogLevel.INFO, $"Loading plugins...");
-            foreach (var p in db.Data)
-                ConstructPlugin(p);
-        }
-
-        public void InitAll()
-        {
-            //Initialize all
-            Log(EagleLogLevel.INFO, $"Initializing plugins...");
-            foreach (var p in loaded)
-                p.Init();
-        }
-
-        private void ConstructPlugin(EaglePluginInfo p)
-        {
-            //Create the context for it
-            EagleInternalLoadedPlugin plugin = new EagleInternalLoadedPlugin(p, this);
-            loaded.Add(plugin);
-
-            //Go through each module
-            foreach (var m in p.modules)
+            public bool LoadedSuccessfully
             {
-                //First, load the assembly
-                Assembly asm;
-                Log(EagleLogLevel.DEBUG, $"Loading managed library \"{m.dll}\" for {p.developer_name}.{p.plugin_name}...");
-                try
+                get
                 {
-                    asm = plugin.LoadAssembly(PluginInstallPath.FullName + Path.DirectorySeparatorChar + m.dll);
-                } catch (Exception ex)
+                    bool ok = true;
+                    foreach (var m in modules)
+                        ok = ok && m.LoadedSuccessfully;
+                    return ok;
+                }
+            }
+
+            public void LoadModules()
+            {
+                foreach (var m in modules)
+                    m.Load();
+            }
+
+            public void InitializeModules()
+            {
+                foreach (var m in modules)
+                    m.Initialize();
+            }
+
+            class EagleInternalLoadedPluginModule
+            {
+                public EagleInternalLoadedPluginModule(EagleInternalLoadedPlugin plugin, IEaglePluginPackageModule info)
                 {
-                    Log(EagleLogLevel.ERROR, $"Failed to load {p.developer_name}.{p.plugin_name}: Managed library \"{m.dll}\" could not be loaded: {ex.Message}{ex.StackTrace}");
-                    continue;
+                    this.plugin = plugin;
+                    this.info = info;
                 }
 
-                //Get the class
-                Type type;
-                try
+                private readonly EagleInternalLoadedPlugin plugin;
+                private readonly IEaglePluginPackageModule info;
+
+                private Assembly assembly;
+                private object module;
+
+                public bool LoadedSuccessfully => module != null;
+
+                public void Load()
                 {
-                    type = asm.GetType(m.classname);
-                    if (type == null)
-                        throw new Exception("Unable to find type.");
-                } catch
-                {
-                    Log(EagleLogLevel.ERROR, $"Failed to load {p.developer_name}.{p.plugin_name}: \"{m.classname}\" was not a valid type in {m.dll}.");
-                    continue;
+                    plugin.manager.Log(EagleLogLevel.DEBUG, $"Loading managed library \"{info.DllName}\" for {plugin.PluginId}...");
+                    try
+                    {
+                        if (!plugin.loader.TryLoadFromPackageName(info.DllName, out assembly))
+                        {
+                            assembly = null;
+                            plugin.manager.Log(EagleLogLevel.ERROR, $"Failed to load {plugin.PluginId}: Managed library \"{info.DllName}\" could not be found within the package. The package is misconfigured.");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        plugin.manager.Log(EagleLogLevel.ERROR, $"Failed to load {plugin.PluginId}: Managed library \"{info.DllName}\" could not be loaded: {ex.Message}{ex.StackTrace}");
+                    }
                 }
 
-                //Construct
-                Log(EagleLogLevel.DEBUG, $"Constructing class \"{m.classname}\" from plugin {p.developer_name}.{p.plugin_name}...");
-                object item;
-                try
+                public void Initialize()
                 {
-                    item = Activator.CreateInstance(type, plugin);
+                    if (assembly != null)
+                    {
+                        //Get the class
+                        Type type;
+                        try
+                        {
+                            type = assembly.GetType(info.ClassName);
+                            if (type == null)
+                                throw new Exception("Unable to find type.");
+                        }
+                        catch
+                        {
+                            plugin.manager.Log(EagleLogLevel.ERROR, $"Failed to load {plugin.PluginId}: \"{info.ClassName}\" was not a valid type in {info.DllName}.");
+                            return;
+                        }
+
+                        //Construct
+                        plugin.manager.Log(EagleLogLevel.DEBUG, $"Constructing class \"{type.FullName}\" from plugin {plugin.PluginId}...");
+                        try
+                        {
+                            module = Activator.CreateInstance(type, plugin);
+                        }
+                        catch (Exception ex)
+                        {
+                            plugin.manager.Log(EagleLogLevel.ERROR, $"Failed to load {plugin.PluginId}: Construction of \"{type.FullName}\" failed: {ex.Message}{ex.StackTrace}");
+                            return;
+                        }
+                    }
                 }
-                catch (Exception ex)
-                {
-                    Log(EagleLogLevel.ERROR, $"Failed to load {p.developer_name}.{p.plugin_name}: Construction of \"{m.classname}\" failed: {ex.Message}{ex.StackTrace}");
-                    continue;
-                }
-
-                //Add
-                plugin.AddLoadedModule(item);
-            }
-        }
-
-        class EagleInternalLoadedPlugin : EagleLoadedPlugin
-        {
-            public EagleInternalLoadedPlugin(EaglePluginInfo info, EaglePluginManager manager) : base(info, manager)
-            {
-                loader = new AssemblyLoadContext(PluginId);
-                loader.Resolving += Loader_Resolving;
-            }
-
-            private readonly AssemblyLoadContext loader;
-            private readonly List<object> loadedModules = new List<object>();
-
-            public Assembly LoadAssembly(string fullname)
-            {
-                return loader.LoadFromAssemblyPath(fullname);
-            }
-
-            public void AddLoadedModule(object module)
-            {
-                loadedModules.Add(module);
-            }
-
-            private Assembly Loader_Resolving(AssemblyLoadContext ctx, AssemblyName name)
-            {
-                Assembly result;
-                if (TryLoadPluginAssembly(name.Name + ".dll", out result))
-                    return result;
-                if (TryLoadPluginAssembly(name.Name + ".so", out result))
-                    return result;
-                return null;
-            }
-
-            private bool TryLoadPluginAssembly(string name, out Assembly result)
-            {
-                //Create full filename
-                string filename = @"E:\TEST\" + name;
-
-                //Check if it exists
-                if (!File.Exists(filename))
-                {
-                    result = null;
-                    return false;
-                }
-
-                //Load
-                result = loader.LoadFromAssemblyPath(filename);
-                return true;
             }
         }
     }

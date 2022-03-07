@@ -26,9 +26,13 @@ namespace EagleWeb.Core.Radio
             //Set
             this.context = ctx;
 
-            //Create modules and add them as an extra
-            modules = ctx.RadioModules.CreateInstance(this);
-            context.AddExtra("modules", modules.CreateEagleObjectMap());
+            //Create modules and add them as an extra when we finish initializing
+            //Adding the extra after it leaves the constructor is *technically* unsupported but it should be fine since nobody will have requested the object yet
+            ctx.OnPluginsLoaded += () =>
+            {
+                modules = ctx.RadioModules.CreateInstance(this);
+                (context as NetObjects.EagleNetObjectInstance).AddExtraPost("modules", modules.CreateEagleObjectMap());
+            };            
 
             //Create error
             portOnError = context.CreateEventDispatcher("OnError");
