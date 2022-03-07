@@ -23,12 +23,17 @@ namespace EagleWeb.Core.Web.WS
         private readonly EagleAccount account;
         private readonly PostingQueue<OutgoingMessage> outgoing = new PostingQueue<OutgoingMessage>();
 
+        private WebSocket sock;
+
         private const int DEFAULT_RECEIVE_BUFFER_SIZE = 2048;
 
         public EagleAccount Account => account;
 
         public async Task RunAsync(WebSocket sock)
         {
+            //Set
+            this.sock = sock;
+
             //Create buffers
             byte[] receiveBuffer = new byte[DEFAULT_RECEIVE_BUFFER_SIZE];
             int receiveBufferUse = 0;
@@ -106,6 +111,18 @@ namespace EagleWeb.Core.Web.WS
         public virtual bool Authenticate(HttpContext e)
         {
             return true;
+        }
+
+        public bool SendNow(byte[] data, int index, int count, bool asText)
+        {
+            try
+            {
+                sock.SendAsync(new ArraySegment<byte>(data, index, count), asText ? WebSocketMessageType.Text : WebSocketMessageType.Binary, true, CancellationToken.None).GetAwaiter().GetResult();
+                return true;
+            } catch
+            {
+                return false;
+            }
         }
 
         public void Send(byte[] data, int index, int count, bool asText)
