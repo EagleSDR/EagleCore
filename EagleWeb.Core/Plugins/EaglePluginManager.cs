@@ -142,6 +142,7 @@ namespace EagleWeb.Core.Plugins
             public EagleInternalLoadedPlugin(EaglePluginInfo info, EaglePluginManager manager) : base(info, manager)
             {
                 loader = new AssemblyLoadContext(PluginId);
+                loader.Resolving += Loader_Resolving;
             }
 
             private readonly AssemblyLoadContext loader;
@@ -155,6 +156,33 @@ namespace EagleWeb.Core.Plugins
             public void AddLoadedModule(object module)
             {
                 loadedModules.Add(module);
+            }
+
+            private Assembly Loader_Resolving(AssemblyLoadContext ctx, AssemblyName name)
+            {
+                Assembly result;
+                if (TryLoadPluginAssembly(name.Name + ".dll", out result))
+                    return result;
+                if (TryLoadPluginAssembly(name.Name + ".so", out result))
+                    return result;
+                return null;
+            }
+
+            private bool TryLoadPluginAssembly(string name, out Assembly result)
+            {
+                //Create full filename
+                string filename = @"E:\TEST\" + name;
+
+                //Check if it exists
+                if (!File.Exists(filename))
+                {
+                    result = null;
+                    return false;
+                }
+
+                //Load
+                result = loader.LoadFromAssemblyPath(filename);
+                return true;
             }
         }
     }

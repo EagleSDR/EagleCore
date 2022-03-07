@@ -30,7 +30,6 @@ namespace EagleWeb.Core.Radio
             //Set
             this.radio = radio;
             this.session = session;
-            session.PortAudio.OnOutput += PortAudio_OnOutput;
 
             //Create modules
             modules = radio.Context.RadioSessionModules.CreateInstance(this);
@@ -39,6 +38,7 @@ namespace EagleWeb.Core.Radio
             context.RequireKeepAlivePings(this);
             context.AllowWebDeletion();
             context.AddExtra("modules", modules.CreateEagleObjectMap());
+            context.AddExtra("demodulators", CreateDemodulatorInfoList());
 
             //Create events
             portOnError = context.CreateEventDispatcher("OnError");
@@ -53,20 +53,6 @@ namespace EagleWeb.Core.Radio
             portDemodulator = context.CreatePropertyObject<IEagleRadioDemodulator>("Demodulator")
                 .BindOnChanged((IEaglePortPropertySetArgs<IEagleRadioDemodulator> args) => session.SetDemodulator(args.Value))
                 .MakeWebEditable();
-        }
-
-        private void PortAudio_OnOutput(IEagleRadioPort<EagleStereoPair> port, EagleStereoPair* buffer, int count)
-        {
-            //DEBUG
-            byte[] diskBuffer = new byte[sizeof(EagleStereoPair)];
-            fixed (byte* diskBufferPtr = diskBuffer)
-            {
-                for (int i = 0; i < count; i++)
-                {
-                    Buffer.MemoryCopy(buffer, diskBufferPtr, sizeof(EagleStereoPair), sizeof(EagleStereoPair));
-                    test.Write(diskBuffer, 0, diskBuffer.Length);
-                }
-            }
         }
 
         private EagleRadio radio;
@@ -108,6 +94,33 @@ namespace EagleWeb.Core.Radio
             return false;
         }
 
-        private static System.IO.FileStream test = new System.IO.FileStream("C:\\Users\\Roman\\Desktop\\test.bin", System.IO.FileMode.Create);
+        public IEagleRadioAudioOutput CreateResampledOutput(float outputSampleRate)
+        {
+            return session.GetResampledAudioOutput(outputSampleRate);
+        }
+
+        private JObject CreateDemodulatorInfoList()
+        {
+            //Enumerate modules and look for demodulators
+            JArray arr = new JArray();
+            foreach (var m in modules.Modules)
+            {
+                if (m.Module is IEagleRadioDemodulator demod)
+                {
+                    arr.Add(new JObject
+                    {
+                        { "guid", demod.Guid },
+                        { "name_long", demod.DisplayName },
+                        { "name_short", demod.DisplayNameShort }
+                    });
+                }
+            }
+
+            //Wrap
+            return new JObject
+            {
+                { "d", arr }
+            };
+        }
     }
 }

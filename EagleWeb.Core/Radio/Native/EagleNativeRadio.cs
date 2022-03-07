@@ -9,11 +9,19 @@ using System.Threading;
 
 namespace EagleWeb.Core.Radio.Native
 {
+    delegate void EagleNativeRadio_OnWorkerRunnableEventArgs();
     delegate void EagleNativeRadio_OnErrorEventArgs(EagleNativeRadio radio, string message);
     unsafe class EagleNativeRadio : EagleWorkerThread
     {
         public EagleNativeRadio(int bufferSize) : base("Eagle Radio Worker Thread")
         {
+            //Validate DLL version
+            int version = EagleNativeMethods.eagleradio_get_version();
+            if (version > EagleNativeMethods.DLL_CURRENT_VERSION)
+                throw new Exception($"The current version is not up to date with the installed EagleRadioCore library! Update the Eagle core.");
+            if (version < EagleNativeMethods.DLL_CURRENT_VERSION)
+                throw new Exception($"The EagleRadioCore library is out of date!");
+
             //Set
             this.bufferSize = bufferSize;
 
@@ -36,6 +44,7 @@ namespace EagleWeb.Core.Radio.Native
 
         /* API */
 
+        public event EagleNativeRadio_OnWorkerRunnableEventArgs OnWorkerRunnable;
         public event EagleNativeRadio_OnErrorEventArgs OnError;
 
         public void SetSource(IEagleRadioSource newSource)
@@ -98,6 +107,7 @@ namespace EagleWeb.Core.Radio.Native
             RunOnWorkerThread(() =>
             {
                 EagleNativeMethods.eagleradio_add_session(GetHandle(), session.GetHandle());
+                session.BindEvents();
             });
 
             return session;
@@ -108,6 +118,7 @@ namespace EagleWeb.Core.Radio.Native
         protected override void Work()
         {
             ProcessWorkerEvents();
+            OnWorkerRunnable?.Invoke();
             if (suspended)
             {
                 //Sleep for a bit
@@ -172,11 +183,20 @@ namespace EagleWeb.Core.Radio.Native
 
             private EagleNativeRadio radio;
 
+            public void BindEvents()
+            {
+                //Add event
+                radio.OnWorkerRunnable += ProcessWorkerEvents;
+            }
+
             public override void Dispose()
             {
                 //Run on the radio's worker thread
                 radio.RunOnWorkerThread(() =>
                 {
+                    //Remove event
+                    radio.OnWorkerRunnable -= ProcessWorkerEvents;
+
                     //Remove from the list within the radio
                     EagleNativeMethods.eagleradio_remove_session(radio.GetHandle(), GetHandle());
 

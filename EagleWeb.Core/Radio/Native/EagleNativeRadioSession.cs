@@ -8,7 +8,6 @@ using System.Text;
 
 namespace EagleWeb.Core.Radio.Native
 {
-    delegate void EagleNativeRadioSession_OnTickEventArgs(EagleNativeRadioSession session);
     unsafe class EagleNativeRadioSession : EagleWorkerEventQueue, IDisposable
     {
         public EagleNativeRadioSession(int bufferSize)
@@ -20,7 +19,6 @@ namespace EagleWeb.Core.Radio.Native
             handle = EagleNativeMethods.eaglesession_create(
                 bufferSize,
                 (IntPtr)gc,
-                funcNativeProcess,
                 funcNativePipeConfigure,
                 funcNativePipePush,
                 funcNativeDemodulatorConfigure,
@@ -39,7 +37,6 @@ namespace EagleWeb.Core.Radio.Native
             new StereoPortAdapter("Audio")
         };
 
-        private readonly EagleNativeMethods.eaglesession_process_cb funcNativeProcess = NativeProcess;
         private readonly EagleNativeMethods.eaglesession_pipe_configure_cb funcNativePipeConfigure = NativePipeConfigure;
         private readonly EagleNativeMethods.eaglesession_pipe_push_cb funcNativePipePush = NativePipePush;
         private readonly EagleNativeMethods.eaglesession_demodulator_configure_cb funcNativeDemodulatorConfigure = NativeDemodulatorConfigure;
@@ -48,8 +45,6 @@ namespace EagleWeb.Core.Radio.Native
         private bool disposed = false;
 
         /* API */
-
-        public event EagleNativeRadioSession_OnTickEventArgs OnTick;
 
         public IEagleRadioPort<EagleComplex> PortInput => (IEagleRadioPort<EagleComplex>)ports[0];
         public IEagleRadioPort<EagleComplex> PortVFO => (IEagleRadioPort<EagleComplex>)ports[1];
@@ -88,6 +83,11 @@ namespace EagleWeb.Core.Radio.Native
             return handle;
         }
 
+        public IEagleRadioAudioOutput GetResampledAudioOutput(float outputSampleRate)
+        {
+            return new ResampledAudioOutput(this, outputSampleRate);
+        }
+
         public virtual void Dispose()
         {
             //IMPORTANT: THIS CALL IS UNSAFE! THIS SHOULD BE OVERWRITTEN TO BE CALLED ONLY WHEN IT IS SAFE TO DO SO!
@@ -110,13 +110,6 @@ namespace EagleWeb.Core.Radio.Native
         private static EagleNativeRadioSession FromIntPtr(IntPtr userCtx)
         {
             return (EagleNativeRadioSession)GCHandle.FromIntPtr(userCtx).Target;
-        }
-
-        private static void NativeProcess(IntPtr user_ctx)
-        {
-            EagleNativeRadioSession session = FromIntPtr(user_ctx);
-            session.ProcessWorkerEvents();
-            session.OnTick?.Invoke(session);
         }
 
         private static void NativePipeConfigure(IntPtr user_ctx, int pipe_id, float sampleRate)
@@ -143,6 +136,71 @@ namespace EagleWeb.Core.Radio.Native
         private static int NativeDemodulatorProcess(IntPtr user_ctx, IntPtr demodulator_ctx, EagleComplex* buffer, float* audioL, float* audioR, int count)
         {
             return EagleNativeWrapper<IEagleRadioDemodulator>.FromHandle(demodulator_ctx).Process(buffer, count, audioL, audioR);
+        }
+
+        /* AUDIO OUTPUT IMPLEMENTATION */
+
+        class ResampledAudioOutput : IEagleRadioAudioOutput
+        {
+            public ResampledAudioOutput(EagleNativeRadioSession session, float sampleRate)
+            {
+                //Set
+                this.session = session;
+                this.sampleRate = sampleRate;
+
+                //Create a GC handle on ourselves so we can locate ourselves in callbacks
+                gc = GCHandle.Alloc(this);
+
+                //Initialize on the worker thread
+                session.RunOnWorkerThread(() =>
+                {
+                    //TODO: Check for error
+                    EagleNativeMethods.eaglesession_output_create(
+                        session.GetHandle(),
+                        (IntPtr)gc,
+                        funcAudioOutCb,
+                        sampleRate
+                    );
+                });
+            }
+
+            private readonly EagleNativeRadioSession session;
+            private readonly GCHandle gc;
+            private readonly float sampleRate;
+            private bool disposed = false;
+
+            public event IEagleRadioPort_SampleRateChanged<EagleStereoPair> OnSampleRateChanged;
+            public event IEagleRadioPort_Output<EagleStereoPair> OnOutput;
+
+            private static readonly EagleNativeMethods.eaglesession_audio_out_cb funcAudioOutCb = NativeProcessAudioOutput;
+
+            private static void NativeProcessAudioOutput(IntPtr user_ctx, EagleStereoPair* stereoSamples, int count)
+            {
+                ResampledAudioOutput target = (ResampledAudioOutput)GCHandle.FromIntPtr(user_ctx).Target;
+                target.OnOutput?.Invoke(target, stereoSamples, count);
+            }
+
+            public bool IsDisposed => disposed || session.disposed;
+            public string Name => "Audio Resampled";
+            public float SampleRate => sampleRate;
+
+            public void Dispose()
+            {
+                session.RunOnWorkerThread(() =>
+                {
+                    if (!IsDisposed)
+                    {
+                        //Destroy native object
+                        EagleNativeMethods.eaglesession_output_destroy(session.GetHandle(), (IntPtr)gc);
+
+                        //Destroy GC
+                        gc.Free();
+
+                        //Set flag
+                        disposed = true;
+                    }
+                });
+            }
         }
 
         /* PORT IMPLEMENTATIONS */
