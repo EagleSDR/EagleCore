@@ -7,11 +7,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EagleWeb.Core", "EagleWeb.C
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EagleWeb.Common", "EagleWeb.Common\EagleWeb.Common.csproj", "{6A109942-9C46-488C-825B-5512051834F6}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EagleWeb.PluginInstaller", "EagleWeb.PluginInstaller\EagleWeb.PluginInstaller.csproj", "{8DE51F3D-E29B-4855-B4AA-6738DCC24F3E}"
-EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "RaptorDspNet", "..\RaptorDspNet\RaptorDspNet\RaptorDspNet.csproj", "{602A2B9B-B37A-47D6-89BB-E6A0C69F4CDE}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EagleWeb.Launcher", "EagleWeb.Launcher\EagleWeb.Launcher.csproj", "{2829B90B-3EEF-41B9-80B8-462082BAC85D}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "VolkDotNet", "..\VolkDotNet\VolkDotNet\VolkDotNet.csproj", "{E27896D8-46FF-4BDD-8998-DAD6FB077555}"
 EndProject
@@ -31,18 +27,10 @@ Global
 		{6A109942-9C46-488C-825B-5512051834F6}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{6A109942-9C46-488C-825B-5512051834F6}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{6A109942-9C46-488C-825B-5512051834F6}.Release|Any CPU.Build.0 = Release|Any CPU
-		{8DE51F3D-E29B-4855-B4AA-6738DCC24F3E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{8DE51F3D-E29B-4855-B4AA-6738DCC24F3E}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{8DE51F3D-E29B-4855-B4AA-6738DCC24F3E}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{8DE51F3D-E29B-4855-B4AA-6738DCC24F3E}.Release|Any CPU.Build.0 = Release|Any CPU
 		{602A2B9B-B37A-47D6-89BB-E6A0C69F4CDE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{602A2B9B-B37A-47D6-89BB-E6A0C69F4CDE}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{602A2B9B-B37A-47D6-89BB-E6A0C69F4CDE}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{602A2B9B-B37A-47D6-89BB-E6A0C69F4CDE}.Release|Any CPU.Build.0 = Release|Any CPU
-		{2829B90B-3EEF-41B9-80B8-462082BAC85D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{2829B90B-3EEF-41B9-80B8-462082BAC85D}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{2829B90B-3EEF-41B9-80B8-462082BAC85D}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{2829B90B-3EEF-41B9-80B8-462082BAC85D}.Release|Any CPU.Build.0 = Release|Any CPU
 		{E27896D8-46FF-4BDD-8998-DAD6FB077555}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{E27896D8-46FF-4BDD-8998-DAD6FB077555}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E27896D8-46FF-4BDD-8998-DAD6FB077555}.Release|Any CPU.ActiveCfg = Release|Any CPU

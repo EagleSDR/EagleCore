@@ -40,6 +40,16 @@ namespace EagleWeb.Common.IO.Sockets
         void Send(byte[] data, int offset, int count, bool asText);
 
         /// <summary>
+        /// Immediately sends the content out to the client and waits for the transaction to complete. Uses less memory than Send, but hangs until the data is fully sent. Use sparingly and avoid on radio threads. Returns if it was successfully sent or not.
+        /// </summary>
+        /// <param name="data"></param>
+        /// <param name="index"></param>
+        /// <param name="count"></param>
+        /// <param name="asText"></param>
+        /// <returns></returns>
+        bool SendNow(byte[] data, int index, int count, bool asText);
+
+        /// <summary>
         /// Fired when data is recieved from the client.
         /// </summary>
         event IEagleSocketClient_OnReceiveArgs OnReceive;
