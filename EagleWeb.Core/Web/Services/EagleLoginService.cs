@@ -8,9 +8,9 @@ using System.Threading.Tasks;
 
 namespace EagleWeb.Core.Web.Services
 {
-    class LoginService : IEagleWebServerService
+    class EagleLoginService : IEagleWebServerService
     {
-        public LoginService(EagleContext ctx)
+        public EagleLoginService(EagleContext ctx)
         {
             this.ctx = ctx;
         }

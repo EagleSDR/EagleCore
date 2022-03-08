@@ -52,14 +52,10 @@ namespace EagleWeb.Core
             //Set up HTTP server
             http = new EagleWebServer(this, 45555);
             http.RegisterService("/api/info", new EagleInfoService(this));
-            http.RegisterService("/api/login", new LoginService(this));
+            http.RegisterService("/api/login", new EagleLoginService(this));
             http.RegisterService("/api/asset", new EagleAssetService(pluginManager));
-
             http.RegisterService("/ws/sock", sockManager);
             http.RegisterService("/ws/rpc", objectManager);
-
-            http.RegisterService("/", new EagleFileService(@"C:\Users\Roman\source\repos\EagleWeb-JS\EagleWebCore\dist\index.html", "text/html"));
-            http.RegisterService("/main.js", new EagleFileService(@"C:\Users\Roman\source\repos\EagleWeb-JS\EagleWebCore\dist\main.js", "text/javascript"));
         }
 
         private readonly string workingPathname;
@@ -97,6 +93,29 @@ namespace EagleWeb.Core
 
             //Fire events
             OnPluginsLoaded?.Invoke();
+
+            //Find the frontend plugin to host the main page with
+            if (pluginManager.TryFindPluginByName("EagleSDR", "CoreWeb", out EaglePluginContext webPlugin))
+            {
+                //Serve each asset
+                foreach (var asset in webPlugin.Package.Assets)
+                {
+                    //Create
+                    EagleFixedAssetService service = new EagleFixedAssetService(asset);
+
+                    //Add normally
+                    http.RegisterService("/" + asset.FileName, service);
+
+                    //Any filename starting with "index" should be served without needing to specify the file
+                    if (asset.FileName.StartsWith("index"))
+                        http.RegisterService("/", service);
+                }
+            } else
+            {
+                //Warn, but don't abort
+                Log(EagleLogLevel.WARN, "EagleFrontend", "No frontend plugin is installed. The web interface won't be accessible!");
+                Log(EagleLogLevel.WARN, "EagleFrontend", "This likely isn't intended. You should install the \"EagleSDR.CoreWeb\" plugin to remedy this.");
+            }
         }
 
         public void Run()
