@@ -44,6 +44,7 @@ namespace EagleWeb.Core.Plugins.Package
         public Version SdkVersion => new Version(manifest.sdk_version_major, manifest.sdk_version_minor);
         public IEaglePluginPackageModule[] Modules => manifest.modules;
         public IEaglePluginPackageAsset[] Assets => assets;
+        public IEaglePluginPackageDependency[] Dependencies => manifest.dependencies;
 
         public EaglePluginPackageNatives GetNatives(string platform)
         {
@@ -130,6 +131,24 @@ namespace EagleWeb.Core.Plugins.Package
             public string build_platform;
             public PluginManifestNativeObject[] objects_native;
             public PluginManifestModules[] modules;
+            public PluginManifestDepencency[] dependencies = new PluginManifestDepencency[0];
+
+            public class PluginManifestDepencency : IEaglePluginPackageDependency
+            {
+                public string plugin_name;
+                public string developer_name;
+                public int min_version_major;
+                public int min_version_minor;
+
+                [JsonIgnore]
+                public string PluginName => plugin_name;
+
+                [JsonIgnore]
+                public string DeveloperName => developer_name;
+
+                [JsonIgnore]
+                public Version MinVersion => new Version(min_version_major, min_version_minor);
+            }
 
             public class PluginManifestNativeObject
             {

@@ -46,6 +46,10 @@ namespace EagleWeb.Core.Plugins
             //Clean the cache since all required files have been extracted
             cache.Clean();
 
+            //Validate dependencies
+            foreach (var p in newPlugins)
+                p.ValidateDependencies();
+
             //Add all assets
             foreach (var p in newPlugins)
                 assets.AddRange(p.Package.Assets);
@@ -156,6 +160,36 @@ namespace EagleWeb.Core.Plugins
                     foreach (var m in modules)
                         ok = ok && m.LoadedSuccessfully;
                     return ok;
+                }
+            }
+
+            public void ValidateDependencies()
+            {
+                foreach (var d in Package.Dependencies)
+                {
+                    //Search for the plugin
+                    EaglePluginContext depend;
+                    if (manager.TryFindPluginByName(d.DeveloperName, d.PluginName, out depend))
+                    {
+                        //Found; Validate the version
+                        if (depend.Package.PluginVersion.Major > d.MinVersion.Major || (depend.Package.PluginVersion.Major == d.MinVersion.Major && depend.Package.PluginVersion.Minor >= d.MinVersion.Minor))
+                        {
+                            //OK!
+                            continue;
+                        } else
+                        {
+                            //Plugin is too old!
+                            manager.Log(EagleLogLevel.FATAL, $"Can't use plugin \"{PluginId}\": Depends on plugin \"{d.DeveloperName}.{d.PluginName}\" (>= v{d.MinVersion.Major}.{d.MinVersion.Minor}) which is installed, but out of date (currently v{depend.Package.PluginVersion.Major}.{depend.Package.PluginVersion.Minor}).");
+                        }
+                    } else
+                    {
+                        //Plugin is not installed!
+                        manager.Log(EagleLogLevel.FATAL, $"Can't use plugin \"{PluginId}\": Depends on plugin \"{d.DeveloperName}.{d.PluginName}\" (>= v{d.MinVersion.Major}.{d.MinVersion.Minor}) which is not installed.");
+                    }
+
+                    //Print more info and abort
+                    manager.Log(EagleLogLevel.FATAL, $"The application will now quit. Either install \"{d.DeveloperName}.{d.PluginName}\" (>= v{d.MinVersion.Major}.{d.MinVersion.Minor}) or remove \"{PluginId}\" and restart EagleSDR.");
+                    throw new Exception("Dependency mismatch.");
                 }
             }
 
