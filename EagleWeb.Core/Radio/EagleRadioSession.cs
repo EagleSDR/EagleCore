@@ -1,5 +1,6 @@
 ﻿using EagleWeb.Common;
 using EagleWeb.Common.Auth;
+using EagleWeb.Common.Core.Radio;
 using EagleWeb.Common.NetObjects;
 using EagleWeb.Common.NetObjects.Interfaces;
 using EagleWeb.Common.NetObjects.IO;
@@ -7,7 +8,6 @@ using EagleWeb.Common.Plugin.Interfaces.RadioSession;
 using EagleWeb.Common.Radio;
 using EagleWeb.Core.Misc;
 using EagleWeb.Core.Misc.Module;
-using EagleWeb.Core.Radio.Native;
 using Newtonsoft.Json.Linq;
 using RaptorDspNet;
 using RaptorDspNet.raptordsp.analog;
@@ -25,7 +25,7 @@ namespace EagleWeb.Core.Radio
     /// </summary>
     internal unsafe class EagleRadioSession : EagleObject, IEagleRadioSession, IEagleObjectPingExpiredHandler
     {
-        public EagleRadioSession(IEagleObjectContext context, EagleRadio radio, EagleNativeRadioSession session) : base(context)
+        public EagleRadioSession(IEagleObjectContext context, EagleRadio radio, IEagleNativeRadioSession session) : base(context)
         {
             //Set
             this.radio = radio;
@@ -56,7 +56,7 @@ namespace EagleWeb.Core.Radio
         }
 
         private EagleRadio radio;
-        private EagleNativeRadioSession session;
+        private IEagleNativeRadioSession session;
 
         private IEagleModuleInstance<EagleRadioSession, IEagleRadioSessionModule> modules;
 

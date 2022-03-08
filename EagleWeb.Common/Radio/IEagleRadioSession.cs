@@ -20,5 +20,12 @@ namespace EagleWeb.Common.Radio
         /// Output for the raw input IQ from the source.
         /// </summary>
         IEagleRadioPort<EagleStereoPair> PortAudio { get; }
+
+        /// <summary>
+        /// Creates a resampled audio output to the desired sample rate.
+        /// </summary>
+        /// <param name="outputSampleRate"></param>
+        /// <returns></returns>
+        IEagleRadioAudioOutput CreateResampledOutput(float outputSampleRate);
     }
 }

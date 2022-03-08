@@ -14,8 +14,9 @@ using RaptorDspNet;
 using EagleWeb.Common.Auth;
 using System.Collections.Concurrent;
 using EagleWeb.Core.Misc.Module;
-using EagleWeb.Core.Radio.Native;
 using EagleWeb.Common.Plugin.Interfaces.Radio;
+using EagleWeb.Core.Plugins;
+using EagleWeb.Common.Core.Radio;
 
 namespace EagleWeb.Core.Radio
 {
@@ -26,12 +27,27 @@ namespace EagleWeb.Core.Radio
             //Set
             this.context = ctx;
 
-            //Create modules and add them as an extra when we finish initializing
-            //Adding the extra after it leaves the constructor is *technically* unsupported but it should be fine since nobody will have requested the object yet
+            //Bind events on plugin load completed
             ctx.OnPluginsLoaded += () =>
             {
+                //Create modules and add them as an extra
+                //Adding the extra after it leaves the constructor is *technically* unsupported but it should be fine since nobody will have requested the object yet
                 modules = ctx.RadioModules.CreateInstance(this);
                 (context as NetObjects.EagleNetObjectInstance).AddExtraPost("modules", modules.CreateEagleObjectMap());
+
+                //Now, we'll need to find the plugin and module responsible for the core radio. This is required!
+                if (ctx.PluginManager.TryFindPluginByName("EagleSDR", "CoreRadio", out EaglePluginContext plugin) && plugin.TryFindModuleByClassname("EagleSDR.CoreRadio.EagleNativeRadioPlugin", out IEagleNativeRadioFactory module))
+                {
+                    //Create the native object using the factory
+                    radio = module.CreateNativeRadio(BUFFER_SIZE);
+                    radio.OnError += Radio_OnError;
+                } else
+                {
+                    //Failed to find the native radio! This is a required component!
+                    Log(EagleLogLevel.FATAL, $"The EagleSDR.CoreRadio plugin is not present! This plugin is required for operation.");
+                    Log(EagleLogLevel.FATAL, $"The application will now quit. Install this plugin and restart EagleSDR.");
+                    throw new Exception("Missing required plugin.");
+                }
             };            
 
             //Create error
@@ -54,17 +70,12 @@ namespace EagleWeb.Core.Radio
                 .MakeWebEditable()
                 .RequirePermission(EaglePermissions.PERMISSION_TUNE)
                 .BindOnChanged(OnCenterFreqChanged);
-
-            //Create radio
-            radio = new EagleNativeRadio(BUFFER_SIZE);
-            radio.StartWorker();
-            radio.OnError += Radio_OnError;
         }
 
         public const int BUFFER_SIZE = 65536;
 
         private EagleContext context;
-        private EagleNativeRadio radio;
+        private IEagleNativeRadio radio;
 
         private IEagleModuleInstance<EagleRadio, IEagleRadioModule> modules;
 
@@ -80,7 +91,6 @@ namespace EagleWeb.Core.Radio
         public event IEagleRadio_SessionEventArgs OnSessionRemoved;
 
         public EagleContext Context => context;
-        public EagleNativeRadio Radio => radio;
 
         private void OnEnabledChanged(IEaglePortPropertySetArgs<bool> args)
         {
@@ -141,7 +151,7 @@ namespace EagleWeb.Core.Radio
             return msg;
         }
 
-        private void Radio_OnError(EagleNativeRadio radio, string message)
+        private void Radio_OnError(IEagleNativeRadio radio, string message)
         {
             //Update "running"
             portEnabled.Value = false;
