@@ -86,6 +86,23 @@ namespace EagleWeb.Core.Plugins
             return newPlugins;
         }
 
+        public bool TryFindPluginByName(string developerName, string pluginName, out EaglePluginContext plugin)
+        {
+            //Search
+            foreach (var p in plugins)
+            {
+                if (p.Package.DeveloperName == developerName && p.Package.PluginName == pluginName)
+                {
+                    plugin = p;
+                    return true;
+                }
+            }
+
+            //Failed
+            plugin = null;
+            return false;
+        }
+
         public bool TryGetAsset(string hash, out IEaglePluginPackageAsset asset)
         {
             //Search
@@ -154,6 +171,33 @@ namespace EagleWeb.Core.Plugins
                     m.Initialize();
             }
 
+            public override bool TryFindModuleByClassnameAny(string classname, out object module)
+            {
+                //Search
+                foreach (var m in modules)
+                {
+                    if (m.Info.ClassName == classname)
+                    {
+                        //Found! Make sure it is loaded correctly
+                        if (m.LoadedSuccessfully)
+                        {
+                            //Set result
+                            module = m.Module;
+                            return true;
+                        } else
+                        {
+                            //Failed. Warn the user
+                            manager.Log(EagleLogLevel.WARN, $"Attempted to locate module \"{classname}\" in plugin \"{PluginId}\", but returning failure. The module exists, but did not load correctly!");
+                            break;
+                        }
+                    }
+                }
+
+                //Fail
+                module = null;
+                return false;
+            }
+
             class EagleInternalLoadedPluginModule
             {
                 public EagleInternalLoadedPluginModule(EagleInternalLoadedPlugin plugin, IEaglePluginPackageModule info)
@@ -168,7 +212,17 @@ namespace EagleWeb.Core.Plugins
                 private Assembly assembly;
                 private object module;
 
+                public IEaglePluginPackageModule Info => info;
                 public bool LoadedSuccessfully => module != null;
+                public object Module
+                {
+                    get
+                    {
+                        if (module == null)
+                            throw new Exception("The module has not yet loaded (or was not loaded successfully!)");
+                        return module;
+                    }
+                }
 
                 public void Load()
                 {

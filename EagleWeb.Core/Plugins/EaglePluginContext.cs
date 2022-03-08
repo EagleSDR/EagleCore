@@ -15,7 +15,7 @@ using System.Text;
 
 namespace EagleWeb.Core.Plugins
 {
-    class EaglePluginContext : IEaglePluginContext
+    abstract class EaglePluginContext : IEaglePluginContext
     {
         public EaglePluginContext(EaglePluginPackage package, EagleContext context)
         {
@@ -31,7 +31,7 @@ namespace EagleWeb.Core.Plugins
         public event IEaglePluginContext_OnInitEventArgs OnInit;
 
         public EaglePluginPackage Package => package;
-        public string PluginId => GeneratePluginId(package);
+        public string PluginId => package.DeveloperName + "." + package.PluginName;
         public IEagleContext Context => context;
         public Dictionary<string, IEagleObject> StaticObjects => staticObjects;
 
@@ -40,9 +40,19 @@ namespace EagleWeb.Core.Plugins
             OnInit?.Invoke();
         }
 
-        private static string GeneratePluginId(EaglePluginPackage package)
+        public abstract bool TryFindModuleByClassnameAny(string classname, out object module);
+
+        public bool TryFindModuleByClassname<T>(string classname, out T module)
         {
-            return package.DeveloperName + "." + package.PluginName;
+            if (TryFindModuleByClassnameAny(classname, out object raw) && raw is T mod)
+            {
+                module = mod;
+                return true;
+            } else
+            {
+                module = default(T);
+                return false;
+            }
         }
 
         /* API */
