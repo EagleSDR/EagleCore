@@ -39,6 +39,9 @@ namespace EagleWeb.Core.Plugins
 
         public void LoadPlugins()
         {
+            //Upgrade any plugins that are pending
+            UpgradePlugins();
+
             //Find, load, and unpack all packages
             List<EagleInternalLoadedPlugin> newPlugins = ScanPlugins();
             plugins.AddRange(newPlugins);
@@ -75,6 +78,44 @@ namespace EagleWeb.Core.Plugins
             Log(EagleLogLevel.INFO, $"Finished loading plugins. {loadedOk} of {newPlugins.Count} plugins were successfully loaded.");
             if (plugins.Count == 0)
                 Log(EagleLogLevel.WARN, "No plugins are loaded. This application will be essentially useless until plugins are installed!");
+        }
+
+        private void UpgradePlugins()
+        {
+            //Search for any (.new) files. These are plugin files intended to replace ones. They're dropped when upgrading while the program is running since the originals will be in use.
+            FileInfo[] newFiles = pluginDir.GetFiles("*.egk.new");
+
+            //Upgrade
+            foreach (var src in newFiles)
+            {
+                //Get the destination filename
+                string dst = src.FullName.Substring(0, src.FullName.Length - 4);
+
+                //If the file exists, query and delete it
+                Version oldVersion = new Version();
+                bool upgrade = File.Exists(dst);
+                if (upgrade)
+                {
+                    //Query
+                    using (EaglePluginPackage package = new EaglePluginPackage(dst))
+                        oldVersion = package.PluginVersion;
+
+                    //Delete
+                    File.Delete(dst);
+                }
+
+                //Move
+                File.Move(src.FullName, dst);
+
+                //Query and log
+                using (EaglePluginPackage pkg = new EaglePluginPackage(dst))
+                {
+                    if (upgrade)
+                        Log(EagleLogLevel.INFO, $"Upgraded plugin \"{pkg.DeveloperName}.{pkg.PluginName}\" to v{pkg.PluginVersion.Major}.{pkg.PluginVersion.Minor}.{pkg.PluginVersion.Build} (from v{oldVersion.Major}.{oldVersion.Minor}.{oldVersion.Build}).");
+                    else
+                        Log(EagleLogLevel.INFO, $"Installed plugin \"{pkg.DeveloperName}.{pkg.PluginName}\" at v{pkg.PluginVersion.Major}.{pkg.PluginVersion.Minor}.{pkg.PluginVersion.Build}.");
+                }
+            }
         }
 
         private List<EagleInternalLoadedPlugin> ScanPlugins()
